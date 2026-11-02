@@ -1,4 +1,4 @@
-import type { SiteGatewaySnapshot, SiteGatewayStatus } from "../api/types";
+import type { SiteGatewayDetail, SiteGatewayStatus, SiteGatewaySummary } from "../api/types";
 
 export function gatewayStatus(overrides: Partial<SiteGatewayStatus> = {}): SiteGatewayStatus {
   return {
@@ -25,9 +25,29 @@ export function gatewayStatus(overrides: Partial<SiteGatewayStatus> = {}): SiteG
   };
 }
 
-export function gatewaySnapshot(overrides: Partial<SiteGatewaySnapshot> = {}): SiteGatewaySnapshot {
+export function gatewaySnapshot(overrides: Partial<SiteGatewayDetail> = {}): SiteGatewayDetail {
   return {
+    id: "gz", name: "Guomao", url: "http://100.64.0.21:8200", source: "config",
     enabled: true, tokenConfigured: true, available: true, reachable: true, mode: "ops",
     generatedAt: "2026-11-02T08:00:00.000Z", error: null, status: gatewayStatus(), samples: [], ...overrides,
   };
+}
+
+/** A list card: an ops gateway with one of two backends not ready, unless overridden. */
+export function gatewaySummary(overrides: Partial<SiteGatewaySummary> = {}): SiteGatewaySummary {
+  return {
+    id: "gz", name: "Guomao", url: "http://100.64.0.21:8200", source: "config", enabled: true, tokenConfigured: true,
+    available: true, reachable: true, mode: "ops", generatedAt: new Date().toISOString(), error: null,
+    servicesReady: 1, servicesTotal: 2, inflightTotal: 2, requests: 40, status5xx: 1, errorRate: 0.025, p95Ms: 10_000, windowSeconds: 300,
+    ...overrides,
+  };
+}
+
+/** What the server sends for a gateway it could not reach: no numbers, never zeros. */
+export function unreachableSummary(overrides: Partial<SiteGatewaySummary> = {}): SiteGatewaySummary {
+  return gatewaySummary({
+    available: false, reachable: false, mode: "unavailable", error: "site-gateway-unreachable", generatedAt: null,
+    servicesReady: null, servicesTotal: null, inflightTotal: null, requests: null, status5xx: null, errorRate: null, p95Ms: null, windowSeconds: null,
+    ...overrides,
+  });
 }

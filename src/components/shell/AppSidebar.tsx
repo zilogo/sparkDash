@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { AuthMode, SparkSnapshot } from "../../api/types";
 import { isWorkerSpark } from "../../api/sparkRole";
-import { ACTIVITY_ID, COST_ID, ENERGY_ID, KIOSK_ID, OVERVIEW_ID, SHOWCASE_ID, SITE_GATEWAY_ID, TEMPS_ID, TOKENS_ID, benchId, idToPath } from "../../constants";
+import { ACTIVITY_ID, COST_ID, ENERGY_ID, KIOSK_ID, OVERVIEW_ID, SHOWCASE_ID, SITE_GATEWAY_ID, TEMPS_ID, TOKENS_ID, benchId, idToPath, siteGatewayIdOf } from "../../constants";
 import { BENCH_TYPES } from "../bench/benchCatalog";
 import { BoltIcon, ChevronDownIcon, CoinsIcon, ExpandIcon, GearIcon, GithubIcon, GlobeIcon, GridIcon, ListIcon, PanelLeftIcon, PlusIcon, SearchIcon, TerminalIcon, ThermometerIcon, TokensIcon, XLogoIcon } from "../ui/icons";
 import { OpenAccessChip } from "../OpenAccessChip";
@@ -44,7 +44,6 @@ interface AppSidebarProps {
   authMode?: AuthMode | null;
   /** Hide the sidebar (a strip with a show button stays behind). */
   /** Site Gateway monitoring is configured on the server. */
-  showSiteGateway?: boolean;
   onCollapse?: () => void;
 }
 
@@ -180,8 +179,8 @@ export function AppSidebar({
   refreshInterval,
   authMode = null,
   onCollapse,
-  showSiteGateway = false,
 }: AppSidebarProps) {
+  const siteGatewayActive = activeId === SITE_GATEWAY_ID || siteGatewayIdOf(activeId) != null;
   const [items, setItems] = useState<string[]>(() => sparks.map((s) => s.id));
   const [dragging, setDragging] = useState(false);
   const [benchOpen, setBenchOpen] = useState(() => {
@@ -370,17 +369,15 @@ export function AppSidebar({
             <ListIcon className="h-4 w-4" />
             <span className="rail-item__name">Activity</span>
           </a>
-          {showSiteGateway ? (
-            <a
-              href={idToPath(SITE_GATEWAY_ID)}
-              className={`rail-item ${activeId === SITE_GATEWAY_ID ? "is-active" : ""}`}
-              onClick={inApp(() => onSelect(SITE_GATEWAY_ID))}
-              aria-current={activeId === SITE_GATEWAY_ID ? "page" : undefined}
-            >
-              <GlobeIcon className="h-4 w-4" />
-              <span className="rail-item__name">Site Gateway</span>
-            </a>
-          ) : null}
+          <a
+            href={idToPath(SITE_GATEWAY_ID)}
+            className={`rail-item ${siteGatewayActive ? "is-active" : ""}`}
+            onClick={inApp(() => onSelect(SITE_GATEWAY_ID))}
+            aria-current={siteGatewayActive ? "page" : undefined}
+          >
+            <GlobeIcon className="h-4 w-4" />
+            <span className="rail-item__name">Site Gateways</span>
+          </a>
           <a
             href={idToPath(SHOWCASE_ID)}
             className={`rail-item ${activeId === SHOWCASE_ID ? "is-active" : ""}`}

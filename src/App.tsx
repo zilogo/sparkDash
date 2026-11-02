@@ -47,6 +47,8 @@ import { ErrorBanner } from "./components/ui/ErrorBanner";
 import {
   ACTIVITY_ID,
   SITE_GATEWAY_ID,
+  siteGatewayDetailId,
+  siteGatewayIdOf,
   SHOWCASE_ID,
   ENERGY_ID,
   OVERVIEW_ID,
@@ -66,6 +68,7 @@ import { EnergyPage } from "./components/EnergyPage/EnergyPage";
 import { TempsPage } from "./components/TempsPage/TempsPage";
 import { ActivityPage } from "./components/ActivityPage/ActivityPage";
 import { SiteGatewayPage } from "./components/SiteGatewayPage/SiteGatewayPage";
+import { SiteGatewayListPage } from "./components/SiteGatewayPage/SiteGatewayListPage";
 import { BenchPage } from "./components/bench/BenchPage";
 import { BENCH_SPARK_KEY, BENCH_TYPES } from "./components/bench/benchCatalog";
 import type { AuthMode, Settings, SparkSnapshot } from "./api/types";
@@ -481,7 +484,7 @@ function DashboardApp() {
       { id: "nav:temps", group: "Go to", label: "Temps", hint: "Page", icon: <ThermometerIcon className="h-4 w-4" />, keywords: "gpu temperature thermal temps heat cooling", run: () => navigate(TEMPS_ID) },
       { id: "nav:showcase", group: "Go to", label: "Showcase", hint: "Page", icon: <TerminalIcon className="h-4 w-4" />, keywords: "prompts terminals stream demo", run: () => navigate(SHOWCASE_ID) },
       { id: "nav:activity", group: "Go to", label: "Activity", hint: "Page", icon: <ListIcon className="h-4 w-4" />, keywords: "events log history recent", run: () => navigate(ACTIVITY_ID) },
-      ...(settings?.siteGatewayEnabled ? [{ id: "nav:site-gateway", group: "Go to", label: "Site Gateway", hint: "Page", icon: <GlobeIcon className="h-4 w-4" />, keywords: "gateway karmabox backends requests 5xx 429 latency callers", run: () => navigate(SITE_GATEWAY_ID) }] : []),
+      { id: "nav:site-gateway", group: "Go to", label: "Site Gateways", hint: "Page", icon: <GlobeIcon className="h-4 w-4" />, keywords: "gateway gateways karmabox backends requests 5xx 429 latency callers add", run: () => navigate(SITE_GATEWAY_ID) },
       { id: "nav:kiosk", group: "Go to", label: "Kiosk", hint: "Wall display", icon: <ExpandIcon className="h-4 w-4" />, keywords: "wall tv display fullscreen full screen", run: () => window.location.assign(idToPath(KIOSK_ID)) },
     );
     for (const s of displaySparks) {
@@ -521,7 +524,7 @@ function DashboardApp() {
       { id: "act:harness", group: "Actions", label: "Set up harness sessions", icon: <BotIcon className="h-4 w-4" />, keywords: "occupancy openclaw opencode hermes oh-my-pi wizard", run: () => { setHarnessSparkId(undefined); setShowHarness(true); } }
     );
     return cmds;
-  }, [displaySparks, displayActive, navigate, toggleSidebar, settings?.siteGatewayEnabled]);
+  }, [displaySparks, displayActive, navigate, toggleSidebar]);
 
   return (
     <div className="min-h-screen text-text">
@@ -540,7 +543,6 @@ function DashboardApp() {
           connected={connected}
           refreshInterval={refreshInterval}
           authMode={authMode}
-          showSiteGateway={settings?.siteGatewayEnabled === true}
         />
         <div className="side-strip" aria-hidden={!sideHidden}>
           <button type="button" className="icon-circle" onClick={toggleSidebar} tabIndex={sideHidden ? 0 : -1} title="Show sidebar (Ctrl+B)" aria-label="Show sidebar">
@@ -593,7 +595,9 @@ function DashboardApp() {
               ) : activeId === ACTIVITY_ID ? (
                 <ActivityPage sparks={displaySparks} onSelectSpark={navigate} />
               ) : activeId === SITE_GATEWAY_ID ? (
-                <SiteGatewayPage />
+                <SiteGatewayListPage onOpen={(id) => navigate(siteGatewayDetailId(id))} />
+              ) : siteGatewayIdOf(activeId) ? (
+                <SiteGatewayPage gatewayId={siteGatewayIdOf(activeId)!} onBack={() => navigate(SITE_GATEWAY_ID)} />
               ) : activeId === SHOWCASE_ID ? (
                 <ShowcaseView sparks={displaySparks} />
               ) : benchType ? (
@@ -661,7 +665,6 @@ function DashboardApp() {
         onSelect={navigate}
         onAdd={() => setShowAdd(true)}
         onOpenSettings={() => setShowSettings(true)}
-        showSiteGateway={settings?.siteGatewayEnabled === true}
       />
       <InstallPrompt />
       <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} commands={paletteCommands} />

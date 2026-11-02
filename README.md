@@ -1234,20 +1234,46 @@ Live probes use the LAN IP on remote units, and fall back to an SSH forward to t
 
 ## Site Gateway monitoring
 
-Optional (off unless configured). Monitors a [KarmaBox Site Gateway](https://github.com/zilogo/KarmaBox-Site-Gateway): whether it is alive, whether each backend it fronts is ready, and what traffic it is carrying — per backend and per caller, with 5xx, 429 and latency.
+Monitors any number of [KarmaBox Site Gateways](https://github.com/zilogo/KarmaBox-Site-Gateway): whether each is alive, whether each backend it fronts is ready, and what traffic it carries — per backend and per caller, with 5xx, 429 and latency. Nothing is shown until you add a gateway.
 
-Configure it in the **server's environment** and restart sparkDash. Neither value is editable from the browser or returned by any API:
+### Configure it in the UI
 
-```dotenv
-SPARKDASH_SITEGW_URL=http://100.64.0.21:8200
-SPARKDASH_SITEGW_TOKEN=<the gateway's SITE_GATEWAY_OPS_API_KEY>
-```
+Open **Site Gateways** in the sidebar (it is always there) and press **Add Site Gateway**:
 
-- `SPARKDASH_SITEGW_URL` is the gateway's origin. Only an **IP literal** in loopback, private (RFC1918) or **Tailnet (`100.64.0.0/10`)** space is accepted, with no credentials, path, query or fragment and no redirects; a hostname, a public address or a `.local` name makes the setting invalid (the Overview card then reports an invalid configuration). Use the Tailnet address when sparkDash runs somewhere that cannot reach the site LAN (a Mac on another subnet, for example); note that a Tailnet showing a node offline does not always mean the node is down.
-- `SPARKDASH_SITEGW_TOKEN` is the gateway's **read-only ops key** (`Authorization: Bearer`), separate from every business and admin key; it can read aggregate status and nothing else. Without it sparkDash still works in **liveness-only** mode: it calls the unauthenticated `/healthz` and shows alive / unreachable, and says that backends and request counts are unknown. If the ops endpoint fails (older gateway, wrong key) it falls back to liveness and reports why.
-- The endpoint contract is the gateway's `docs/ops-status.md`. sparkDash reads `/ops/v1/status?window=5` at most once every 5 s (shared between viewers), with a 5 s timeout and a 256 KiB body cap, and keeps only whitelisted fields: caller names that look like keys, IPs or URLs are shown as `unknown`, and nothing else the gateway might send is kept. Counters live in the gateway's memory and reset when it restarts; sparkDash keeps its own 30-second samples (about one hour) for trend.
-- **What you see:** an Overview card (in flight, requests in the window, 5xx rate, p95, one chip per backend), a **Site Gateway** page (backends, callers, per-minute requests / 5xx / 429), and Prometheus series when Prometheus export is on: `sparkdash_sitegw_up`, `sparkdash_sitegw_service_up{service}`, `sparkdash_sitegw_requests{service,class}` (window counts, a gauge), `sparkdash_sitegw_inflight{service}`, `sparkdash_sitegw_latency_p95_seconds{service}` (histogram bucket upper bound). Unknown values are left out, not exported as 0.
-- **Alerts** (Settings → Alerts, when alerts are on): the gateway appears as the unit "Site Gateway". *Unit offline* fires when it stops answering; `sitegw-degraded` when an enabled backend reports degraded; `sitegw-errors` when a backend's 5xx rate is above 20 % over at least 10 requests in the window; `sitegw-ratelimit` when at least 5 requests were answered 429 in the window. The last three need the ops key. Clicking one of these alerts opens the Site Gateway page.
+- **Name** — any label; defaults to `host:port`.
+- **URL** — the gateway's origin, e.g. `http://100.64.0.21:8200`. Only an **IP literal** in loopback, private (RFC1918) or **Tailnet (`100.64.0.0/10`)** space is accepted, with no credentials, path, query or fragment and no redirects; a hostname, a public address or a `.local` name is refused. Use the Tailnet address when sparkDash runs somewhere that cannot reach the site LAN (a Mac on another subnet, for example); a Tailnet showing a node offline does not always mean the node is down.
+- **Ops key** (optional) — the gateway's **read-only ops key** (`SITE_GATEWAY_OPS_API_KEY`, sent as `Authorization: Bearer`), separate from every business and admin key; it can read aggregate status and nothing else. It is **write-only**: stored encrypted on the dashboard server (in `config/sparks-secrets.json`, with the other secrets) and never returned by any API, shown in the UI or logged — the UI only knows "key saved". Without it a gateway is monitored in **liveness-only** mode: sparkDash calls the unauthenticated `/healthz`, shows alive / unreachable and says that backends and request counts are unknown. If the ops endpoint fails (older gateway, wrong key) it falls back to liveness and reports why.
+- **Test connection** checks the address and key without saving anything: *ops* (site id and backend count), *liveness only* (reachable but no / wrong key), or *failed*. While editing, an empty key field reuses the saved key.
+
+Edit or remove a gateway from its card. Changes apply at once, without a restart, and each gateway has its own probe, so one that is down or slow never delays or hides another. Up to 20 gateways. The list lives in `config/site-gateways.json` (`[{ id, name, url }]`, mode `0600`, no secrets; override the path with `SITE_GATEWAYS_JSON_PATH`).
+
+**Environment seed (optional, backward compatible).** `SPARKDASH_SITEGW_URL` (and `SPARKDASH_SITEGW_TOKEN`) still work: when set, the gateway appears as a read-only entry named *Site Gateway (env)* with id `env`, which the UI cannot edit or remove (the API answers `409`). If you add a stored gateway with the same URL, the stored one replaces it. An invalid seed URL shows as *Invalid URL*, never as reachable.
+
+### What you see
+
+- **Site Gateways** page: a card per gateway — name, `host:port`, state (*Ready*, *N of M not ready*, *Liveness only*, *Unreachable*, *Checking…*), backends ready, in flight, requests in the window, 5xx rate, p95, time since the last answer. An unreachable gateway still has its card, with "—" for every number. Click a card for its detail page.
+- **Detail page** (`/site-gateway/<id>`): that gateway's backends, callers (by their configured key name, never by key) and per-minute requests / 5xx / 429, with a link back to the list.
+- **Overview**: with one gateway, the full card (in flight, requests, 5xx rate, p95, a chip per backend); with several, one compact row each (state dot, name, in flight, 5xx rate), each opening that gateway; with none, no card.
+- **Prometheus** (when export is on): `sparkdash_sitegw_up{gateway}`, `sparkdash_sitegw_service_up{gateway,service}`, `sparkdash_sitegw_requests{gateway,service,class}` (window counts, a gauge), `sparkdash_sitegw_inflight{gateway,service}`, `sparkdash_sitegw_latency_p95_seconds{gateway,service}` (histogram bucket upper bound). `gateway` is the gateway's id. Unknown values are left out, not exported as 0.
+- **Alerts** (Settings → Alerts, when alerts are on): every gateway is its own unit, named after the gateway. *Unit offline* fires when it stops answering; `sitegw-degraded` when an enabled backend reports degraded; `sitegw-errors` when a backend's 5xx rate is above 20 % over at least 10 requests in the window; `sitegw-ratelimit` when at least 5 requests were answered 429 in the window. The last three need the ops key. Clicking one of these alerts opens that gateway's detail page; removing a gateway ends its alerts.
+
+### REST API
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/site-gateways` | `{ enabled, gateways: [...] }`: id, name, url, `source` (`config` / `env`), `tokenConfigured`, mode, state and headline numbers per gateway (`null` = unknown) |
+| GET | `/api/site-gateways/:id` | One gateway's full snapshot: backends, callers, per-minute history |
+| POST | `/api/site-gateways` | Add `{ name?, url, token? }` |
+| PATCH | `/api/site-gateways/:id` | `{ name?, url?, token? }`; `token: ""` clears the key; an omitted key is kept while the host is unchanged (a different host drops it) |
+| DELETE | `/api/site-gateways/:id` | Remove a gateway and its stored key |
+| POST | `/api/site-gateways/test` | `{ url, token?, id? }` → `{ ok, mode, reachable, error, siteId, services }`; with `id` and no `token` the saved key is used |
+| GET | `/api/site-gateway` | Compatibility alias: the first gateway's snapshot (or the old "off" shape when none) |
+
+Mutations follow the same access policy as the other mutating routes. `GET /api/settings` reports `siteGatewayCount` (and `siteGatewayEnabled` = count > 0).
+
+### How it reads a gateway
+
+The endpoint contract is the gateway's `docs/ops-status.md`. sparkDash reads `/ops/v1/status?window=5` at most once every 5 s per gateway (shared between viewers), with a 5 s timeout and a 256 KiB body cap, and keeps only whitelisted fields: caller names that look like keys, IPs or URLs are shown as `unknown`, and nothing else the gateway might send is kept. Counters live in the gateway's memory and reset when it restarts; sparkDash keeps its own 30-second samples (about one hour) per gateway for trend.
 
 ---
 

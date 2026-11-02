@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ENERGY_ID, KIOSK_ID, OVERVIEW_ID, SITE_GATEWAY_ID, TEMPS_ID, benchId, benchTypeOf, idToPath, initialActiveId, isPageId, isStaleSparkId, pathToId } from "./constants";
+import { ENERGY_ID, KIOSK_ID, OVERVIEW_ID, SITE_GATEWAY_ID, SITE_GATEWAY_PREFIX, TEMPS_ID, benchId, benchTypeOf, idToPath, initialActiveId, isPageId, isStaleSparkId, pathToId, siteGatewayDetailId, siteGatewayIdOf } from "./constants";
 
 describe("route helpers", () => {
   it("round-trips ids and paths", () => {
@@ -16,8 +16,19 @@ describe("route helpers", () => {
     expect(idToPath(SITE_GATEWAY_ID)).toBe("/site-gateway");
     expect(pathToId("/site-gateway")).toBe(SITE_GATEWAY_ID);
     expect(isPageId(SITE_GATEWAY_ID)).toBe(true);
-    // The server gives the gateway's alerts this id (SITE_GATEWAY_UNIT_ID in SiteGatewayProbe.js).
     expect(SITE_GATEWAY_ID).toBe("__site_gateway__");
+    // The server gives each gateway's alerts this id (SITE_GATEWAY_UNIT_PREFIX in SiteGatewayProbe.js).
+    expect(SITE_GATEWAY_PREFIX).toBe("sitegw:");
+    expect(siteGatewayDetailId("gz")).toBe("sitegw:gz");
+    expect(siteGatewayIdOf("sitegw:gz")).toBe("gz");
+    expect(siteGatewayIdOf("sitegw:")).toBeNull();
+    expect(siteGatewayIdOf("spark1")).toBeNull();
+    expect(idToPath("sitegw:gz")).toBe("/site-gateway/gz");
+    expect(pathToId("/site-gateway/gz")).toBe("sitegw:gz");
+    expect(pathToId("/site-gateway/a%20b/")).toBe("sitegw:a b");
+    expect(idToPath("sitegw:a b")).toBe("/site-gateway/a%20b");
+    expect(isPageId("sitegw:gz")).toBe(true);
+    expect(isStaleSparkId("sitegw:gz", ["spark1"], true)).toBe(false);
   });
 
   describe("initialActiveId", () => {

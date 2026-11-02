@@ -6,8 +6,13 @@ export const ENERGY_ID = "__energy__";
 export const TEMPS_ID = "__temps__";
 export const ACTIVITY_ID = "__activity__";
 export const SHOWCASE_ID = "__showcase__";
-/** Site Gateway page; also the id the server gives the gateway's alerts, so an alert click opens it. */
+/** Site Gateways list page. */
 export const SITE_GATEWAY_ID = "__site_gateway__";
+/**
+ * One gateway's detail page: this prefix + the gateway id. The server gives each gateway's
+ * alerts the same id (SITE_GATEWAY_UNIT_PREFIX in SiteGatewayProbe.js), so an alert click opens it.
+ */
+export const SITE_GATEWAY_PREFIX = "sitegw:";
 /** Cost compare page: fleet token usage priced as a hosted API model. */
 export const COST_ID = "__cost__";
 /** Kiosk wall display: rendered outside the dashboard shell (useAppRoute), so the app never navigates to it in place. */
@@ -27,6 +32,15 @@ const FIXED_PATHS: Record<string, string> = {
   [KIOSK_ID]: "/kiosk",
 };
 
+export function siteGatewayDetailId(gatewayId: string): string {
+  return `${SITE_GATEWAY_PREFIX}${gatewayId}`;
+}
+
+/** Gateway id when `id` is a Site Gateway detail page id, otherwise null. */
+export function siteGatewayIdOf(id: string | null | undefined): string | null {
+  return id && id.startsWith(SITE_GATEWAY_PREFIX) && id.length > SITE_GATEWAY_PREFIX.length ? id.slice(SITE_GATEWAY_PREFIX.length) : null;
+}
+
 export function benchId(type: string): string {
   return `${BENCH_PREFIX}${type}`;
 }
@@ -38,7 +52,7 @@ export function benchTypeOf(id: string | null | undefined): string | null {
 
 /** True for every id that is a page rather than a Spark. */
 export function isPageId(id: string | null | undefined): boolean {
-  return Boolean(id) && (id! in FIXED_PATHS || id!.startsWith(BENCH_PREFIX));
+  return Boolean(id) && (id! in FIXED_PATHS || id!.startsWith(BENCH_PREFIX) || siteGatewayIdOf(id) != null);
 }
 
 /** URL path for an active id (a Spark id gets its detail page; null is the overview). */
@@ -47,6 +61,8 @@ export function idToPath(id: string | null): string {
   if (id in FIXED_PATHS) return FIXED_PATHS[id];
   const bench = benchTypeOf(id);
   if (bench) return `/bench/${encodeURIComponent(bench)}`;
+  const gateway = siteGatewayIdOf(id);
+  if (gateway) return `/site-gateway/${encodeURIComponent(gateway)}`;
   return `/spark/${encodeURIComponent(id)}`;
 }
 
@@ -56,6 +72,8 @@ export function pathToId(pathname: string): string | null {
   for (const [id, p] of Object.entries(FIXED_PATHS)) {
     if (p !== "/" && (pathname === p || pathname === `${p}/`)) return id;
   }
+  const gateway = pathname.match(/^\/site-gateway\/([^/]+)\/?$/);
+  if (gateway) return siteGatewayDetailId(decodeURIComponent(gateway[1]));
   const bench = pathname.match(/^\/bench\/([a-z0-9-]+)\/?$/);
   if (bench) return benchId(bench[1]);
   const spark = pathname.match(/^\/spark\/([^/]+)/);

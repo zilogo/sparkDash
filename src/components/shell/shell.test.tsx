@@ -69,6 +69,20 @@ describe("AppSidebar", () => {
     expect(link.textContent).toContain("Temps");
   });
 
+  it("always links the Site Gateways page (so the first gateway can be added) and stays active on a gateway's detail page", () => {
+    const sidebar = (activeId: string | null) => (
+      <AppSidebar sparks={[]} activeId={activeId} onSelect={() => {}} onAdd={() => {}} onOpenSettings={() => {}} onOpenSearch={() => {}} connected />
+    );
+    const { container, root } = render(sidebar(null));
+    const link = () => container.querySelector<HTMLAnchorElement>('a[href="/site-gateway"]')!;
+    expect(link().textContent).toContain("Site Gateways");
+    expect(link().getAttribute("aria-current")).toBeNull();
+    act(() => root.render(sidebar("__site_gateway__")));
+    expect(link().getAttribute("aria-current")).toBe("page");
+    act(() => root.render(sidebar("sitegw:gz")));
+    expect(link().getAttribute("aria-current")).toBe("page");
+  });
+
   it("only offers the showcase when an online Spark has a reachable LLM", () => {
     expect(showcaseTarget([makeSpark("a", false)])).toBeNull();
   });
@@ -238,7 +252,7 @@ describe("MobileTabBar sheet", () => {
     expect(document.activeElement).toBe(opener);
   });
 
-  it("Stats opens Token totals, Fleet energy, Temps and Activity; Sparks no longer lists them; Showcase follows Prefill", () => {
+  it("Stats opens Token totals, Fleet energy, Temps, Activity and Site Gateways; Sparks no longer lists them; Showcase follows Prefill", () => {
     const { container } = render(
       <MobileTabBar sparks={[makeSpark("a")]} activeId={null} onSelect={() => {}} onAdd={() => {}} onOpenSettings={() => {}} />
     );
@@ -246,7 +260,7 @@ describe("MobileTabBar sheet", () => {
     expect(tab("Search")).toBeUndefined();
     act(() => tab("Stats").click());
     let names = [...document.querySelectorAll(".sheet .rail-item__name")].map((n) => n.textContent);
-    expect(names).toEqual(["Token totals", "Cost compare", "Fleet energy", "Temps", "Activity"]);
+    expect(names).toEqual(["Token totals", "Cost compare", "Fleet energy", "Temps", "Activity", "Site Gateways"]);
     act(() => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     });

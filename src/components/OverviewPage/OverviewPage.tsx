@@ -8,7 +8,7 @@ import { FleetAlertStrip } from "./FleetAlertStrip";
 import { FleetTokenTotals } from "./FleetTokenTotals";
 import { InferenceTrafficCard } from "./InferenceTrafficCard";
 import { FleetKpis, type KpiVisibility } from "./FleetKpis";
-import { ACTIVITY_ID, ENERGY_ID, SITE_GATEWAY_ID, TOKENS_ID } from "../../constants";
+import { ACTIVITY_ID, ENERGY_ID, SITE_GATEWAY_ID, TOKENS_ID, siteGatewayDetailId } from "../../constants";
 import { SiteGatewayCard } from "./SiteGatewayCard";
 import { SparkCard } from "./SparkCard";
 import { ActivityFeed } from "./ActivityFeed";
@@ -351,7 +351,7 @@ export function OverviewPage({
         <FleetKpis sparks={sparks} snapshotKey={sparks} show={kpis} />
         {showFleetEnergy || showLlmTokenTotals || showActivityFeed || showInferenceActivity || showSiteGateway ? (
         <div className="ov-side">
-          {showSiteGateway ? <SiteGatewayCard onOpenDetails={onNavigate ? () => onNavigate(SITE_GATEWAY_ID) : undefined} /> : null}
+          {showSiteGateway ? <SiteGatewayCard onOpenList={onNavigate ? () => onNavigate(SITE_GATEWAY_ID) : undefined} onOpenGateway={onNavigate ? (id) => onNavigate(siteGatewayDetailId(id)) : undefined} /> : null}
           {showInferenceActivity ? <InferenceTrafficCard /> : null}
           {showFleetEnergy ? <FleetEnergyCard nodeCount={sparks.length} nodeNames={Object.fromEntries(sparks.map((s) => [s.id, s.name]))} onOpenDetails={onNavigate ? () => onNavigate(ENERGY_ID) : undefined} /> : null}
           {showLlmTokenTotals ? <FleetTokenTotals onOpenDetails={onNavigate ? () => onNavigate(TOKENS_ID) : undefined} /> : null}

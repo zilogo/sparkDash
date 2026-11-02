@@ -1001,7 +1001,7 @@ export interface SiteGatewayStatus {
   history: Array<{ ts: string; requests: number; status5xx: number | null; rateLimited: number | null }>;
 }
 
-/** GET /api/site-gateway. The URL and the ops key are server-side only and never appear here. */
+/** Per-gateway snapshot (GET /api/site-gateways/:id). The ops token is write-only and never appears in any response. */
 export interface SiteGatewaySnapshot {
   enabled: boolean;
   tokenConfigured: boolean;
@@ -1025,11 +1025,67 @@ export interface SiteGatewaySnapshot {
   }>;
 }
 
+/** GET /api/site-gateways/:id: the snapshot plus the gateway's identity. */
+export interface SiteGatewayDetail extends SiteGatewaySnapshot {
+  id: string;
+  name: string;
+  url: string;
+  /** "env" entries come from SPARKDASH_SITEGW_URL on the server and cannot be edited here. */
+  source: "config" | "env";
+}
+
+/** One card of the Site Gateways list: identity, state and headline numbers (null = unknown, not zero). */
+export interface SiteGatewaySummary {
+  id: string;
+  name: string;
+  url: string;
+  source: "config" | "env";
+  enabled: boolean;
+  tokenConfigured: boolean;
+  available: boolean;
+  reachable: boolean | null;
+  mode: SiteGatewayMode | null;
+  generatedAt: string | null;
+  error: string | null;
+  servicesReady: number | null;
+  servicesTotal: number | null;
+  inflightTotal: number | null;
+  requests: number | null;
+  status5xx: number | null;
+  errorRate: number | null;
+  p95Ms: number | null;
+  windowSeconds: number | null;
+}
+
+export interface SiteGatewayList {
+  enabled: boolean;
+  gateways: SiteGatewaySummary[];
+}
+
+export interface SiteGatewayInput {
+  name?: string;
+  url?: string;
+  /** Write-only. On update an empty string clears the stored token; omitted keeps it. */
+  token?: string;
+}
+
+/** POST /api/site-gateways/test: what the "Test connection" button shows. */
+export interface SiteGatewayTestResult {
+  ok: boolean;
+  mode: SiteGatewayMode;
+  reachable: boolean;
+  /** Short code: site-gateway-url-invalid | site-gateway-unreachable | site-gateway-ops-unavailable. */
+  error: string | null;
+  siteId: string | null;
+  services: number | null;
+}
+
 export interface Settings {
   /** Read-only server capability; configured through environment variables. */
   inferenceActivityEnabled?: boolean;
-  /** Read-only server capability: SPARKDASH_SITEGW_URL is set. */
+  /** True when at least one Site Gateway is configured (siteGatewayCount > 0). */
   siteGatewayEnabled?: boolean;
+  siteGatewayCount?: number;
   pollIntervalMs: number;
   defaultLlmPort: number;
   autoHideOffline: boolean;

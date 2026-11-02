@@ -15,7 +15,10 @@ import type {
   FleetEnergy,
   HealthResponse,
   InferenceActivity,
-  SiteGatewaySnapshot,
+  SiteGatewayDetail,
+  SiteGatewayInput,
+  SiteGatewayList,
+  SiteGatewayTestResult,
   HermesBatchUpdateResponse,
   GpuClockStatus,
   FleetGpuClockResult,
@@ -86,10 +89,34 @@ export function fetchInferenceActivity(): Promise<InferenceActivity> {
   return apiFetch("/api/inference/activity");
 }
 
-/** Optional Site Gateway status from the server-side probe (URL and ops key stay on the server). */
-export function fetchSiteGateway(): Promise<SiteGatewaySnapshot> {
-  return apiFetch("/api/site-gateway");
+// ─── Site Gateways ───────────────────────────────────────
+/** Every configured gateway with its headline numbers. */
+export function fetchSiteGateways(): Promise<SiteGatewayList> {
+  return apiFetch("/api/site-gateways");
 }
+
+/** One gateway's full snapshot (backends, callers, trend). */
+export function fetchSiteGateway(id: string): Promise<SiteGatewayDetail> {
+  return apiFetch(`/api/site-gateways/${encodeURIComponent(id)}`);
+}
+
+export function createSiteGateway(input: SiteGatewayInput): Promise<{ success: boolean; gateway: SiteGatewayDetail }> {
+  return apiFetch("/api/site-gateways", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateSiteGateway(id: string, input: SiteGatewayInput): Promise<{ success: boolean; gateway: SiteGatewayDetail }> {
+  return apiFetch(`/api/site-gateways/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteSiteGateway(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/api/site-gateways/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Ephemeral check. With `id` and no token the server reuses that gateway's stored token. */
+export function testSiteGateway(input: { url: string; token?: string; id?: string }): Promise<SiteGatewayTestResult> {
+  return apiFetch("/api/site-gateways/test", { method: "POST", body: JSON.stringify(input) });
+}
+
 
 /** Fleet activity log, newest first. */
 export async function fetchEvents(opts?: {

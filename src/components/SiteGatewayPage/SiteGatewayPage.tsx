@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import type { SiteGatewayPrincipal, SiteGatewayService, SiteGatewayTrafficService } from "../../api/types";
 import { StackedBarChart, type BarSeries } from "../ui/StackedBarChart";
+import { ChevronRightIcon } from "../ui/icons";
 import { Tag } from "../ui/Tag";
 import {
   SERVICE_TONE, UNKNOWN, fmtCount, fmtLatency, fmtPercent, fmtUptime, gatewayHeadline, trendBuckets,
 } from "./siteGatewayFormat";
-import { useSiteGateway } from "./useSiteGateway";
+import { useSiteGatewayDetail } from "./useSiteGateway";
 import "../../styles/sitegateway.css";
 
 const SERIES: readonly BarSeries[] = [
@@ -75,22 +76,34 @@ function PrincipalTable({ principals }: { principals: SiteGatewayPrincipal[] }) 
   );
 }
 
-/** Site Gateway page: backend state, traffic per backend and per caller, per-minute trend. */
-export function SiteGatewayPage() {
-  const { snapshot, failed } = useSiteGateway();
+interface SiteGatewayPageProps {
+  gatewayId: string;
+  /** Back to the Site Gateways list. */
+  onBack: () => void;
+}
+
+/** One Site Gateway: backend state, traffic per backend and per caller, per-minute trend. */
+export function SiteGatewayPage({ gatewayId, onBack }: SiteGatewayPageProps) {
+  const { snapshot, failed, notFound } = useSiteGatewayDetail(gatewayId);
   const headline = gatewayHeadline(snapshot, failed);
   const status = !failed && snapshot?.available ? snapshot.status : null;
   const buckets = useMemo(() => trendBuckets(failed ? null : snapshot), [snapshot, failed]);
   const windowMinutes = status ? Math.max(1, Math.round(status.windowSeconds / 60)) : 5;
   const chartTotal = buckets.reduce((sum, b) => sum + Object.values(b.values).reduce((a, v) => a + v, 0), 0);
+  const back = (
+    <button type="button" className="btn btn--sm btn--ghost sg-back" onClick={onBack}>
+      <ChevronRightIcon className="h-3.5 w-3.5 sg-back__icon" />
+      Site Gateways
+    </button>
+  );
 
-  if (snapshot?.enabled === false) {
+  if (notFound) {
     return (
       <div className="sg">
-        <header className="page-head"><div><h1>Site Gateway</h1></div></header>
-        <div className="panel sg-state">
-          <h3>Site Gateway monitoring is not configured</h3>
-          <p>Set SPARKDASH_SITEGW_URL (and SPARKDASH_SITEGW_TOKEN for traffic and backend detail) in the server environment and restart sparkDash.</p>
+        <header className="page-head"><div>{back}<h1>Site Gateway</h1></div></header>
+        <div className="panel sg-state" role="alert">
+          <h3>This Site Gateway is not configured any more</h3>
+          <p>It was removed, or the id in the address is wrong. Go back to the list to see the gateways that exist.</p>
         </div>
       </div>
     );
@@ -100,9 +113,12 @@ export function SiteGatewayPage() {
     <div className="sg">
       <header className="page-head">
         <div>
-          <h1>Site Gateway</h1>
+          {back}
+          <h1>{snapshot?.name ?? "Site Gateway"}</h1>
           <p className="page-head__sub">
-            Backend state and request traffic seen by the KarmaBox Site Gateway. Counts are for the last {windowMinutes} minutes and
+            {snapshot ? <span className="sg-url font-tabular">{snapshot.url}</span> : null}
+            {snapshot ? " · " : null}
+            Backend state and request traffic seen by this KarmaBox Site Gateway. Counts are for the last {windowMinutes} minutes and
             reset when the gateway restarts. Callers are shown by their configured key name, never by key.
           </p>
         </div>
@@ -122,8 +138,8 @@ export function SiteGatewayPage() {
           <h3>Liveness only</h3>
           <p>
             {snapshot.tokenConfigured
-              ? "The gateway answers /healthz but its ops status endpoint did not respond (is it deployed, and is the ops key right?)."
-              : "The gateway answers /healthz. Set SPARKDASH_SITEGW_TOKEN to the gateway's ops key to see backends and traffic."}{" "}
+              ? "The gateway answers /healthz but its ops status endpoint did not respond (is it deployed, and is the ops key right?). Edit the gateway on the list page to change the key."
+              : "The gateway answers /healthz. Edit the gateway on the list page and add its ops key to see backends and traffic."}{" "}
             Backend state and request counts are unknown.
           </p>
         </div>

@@ -20,16 +20,41 @@ describe("fetchInferenceActivity", () => {
   });
 });
 
-describe("fetchSiteGateway", () => {
+describe("Site Gateway client", () => {
   afterEach(() => { localStorage.removeItem("sparkdashToken"); vi.unstubAllGlobals(); });
-  it("is an ordinary authenticated dashboard GET; the gateway key never leaves the server", async () => {
+
+  it("reads the list and one detail with the dashboard token; the gateway token never travels on reads", async () => {
     localStorage.setItem("sparkdashToken", "dashboard-token");
-    const payload = { enabled: false, available: false, reachable: null, mode: null, status: null, samples: [] };
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(payload));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(Response.json({ enabled: false, gateways: [] })));
     vi.stubGlobal("fetch", fetchMock);
-    const { fetchSiteGateway } = await loadClient();
-    expect(await fetchSiteGateway()).toEqual(payload);
-    expect(fetchMock).toHaveBeenCalledWith("/api/site-gateway", { headers: { Authorization: "Bearer dashboard-token" } });
+    const { fetchSiteGateways, fetchSiteGateway } = await loadClient();
+    expect(await fetchSiteGateways()).toEqual({ enabled: false, gateways: [] });
+    expect(fetchMock).toHaveBeenCalledWith("/api/site-gateways", { headers: { Authorization: "Bearer dashboard-token" } });
+    await fetchSiteGateway("a b/c");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/site-gateways/a%20b%2Fc", { headers: { Authorization: "Bearer dashboard-token" } });
+  });
+
+  it("creates, updates, deletes and tests with JSON bodies on the right routes", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(Response.json({ success: true })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { createSiteGateway, updateSiteGateway, deleteSiteGateway, testSiteGateway } = await loadClient();
+    await createSiteGateway({ name: "GZ", url: "http://100.64.0.21:8200", token: "t" });
+    await updateSiteGateway("gz", { token: "" });
+    await deleteSiteGateway("gz");
+    await testSiteGateway({ url: "http://100.64.0.21:8200", id: "gz" });
+    const calls = fetchMock.mock.calls.map(([url, init]) => [url, init.method, init.body]);
+    expect(calls).toEqual([
+      ["/api/site-gateways", "POST", JSON.stringify({ name: "GZ", url: "http://100.64.0.21:8200", token: "t" })],
+      ["/api/site-gateways/gz", "PATCH", JSON.stringify({ token: "" })],
+      ["/api/site-gateways/gz", "DELETE", undefined],
+      ["/api/site-gateways/test", "POST", JSON.stringify({ url: "http://100.64.0.21:8200", id: "gz" })],
+    ]);
+  });
+
+  it("surfaces the server's error message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "A Site Gateway with this URL is already configured" }, { status: 409 })));
+    const { createSiteGateway } = await loadClient();
+    await expect(createSiteGateway({ url: "http://100.64.0.21:8200" })).rejects.toThrow("already configured");
   });
 });
 
