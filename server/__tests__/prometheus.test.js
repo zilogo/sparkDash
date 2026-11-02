@@ -562,9 +562,10 @@ function gatewaySnapshot(overrides = {}) {
 }
 
 test("Site Gateway series use base units, leave out unknown and stay parseable", () => {
-  const text = renderPrometheusMetrics([gb10Head()], { siteGateway: gatewaySnapshot() });
+  const text = renderPrometheusMetrics([gb10Head()], { siteGateways: [{ id: "gz", ...gatewaySnapshot() }] });
   const families = parseExposition(text);
   assert.equal(families.get("sparkdash_sitegw_up").samples[0].value, 1);
+  assert.equal(families.get("sparkdash_sitegw_up").samples[0].labels.gateway, "gz");
   const up = families.get("sparkdash_sitegw_service_up").samples;
   assert.deepEqual(up.map((s) => [s.labels.service, s.value]), [["deepseek-v41", 1], ["media", 0]], "unknown and disabled backends are omitted");
   assert.equal(valueOf(families, "sparkdash_sitegw_requests", { service: "deepseek-v41", class: "5xx" }), 1);
@@ -576,11 +577,27 @@ test("Site Gateway series use base units, leave out unknown and stay parseable",
 });
 
 test("Site Gateway: not configured exports nothing, unreachable exports only up 0, liveness only exports up", () => {
-  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateway: { enabled: false, reachable: null } }), /sitegw/);
-  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateway: { enabled: true, reachable: null } }), /sitegw/, "unknown before the first check");
-  const down = parseExposition(renderPrometheusMetrics([], { siteGateway: { enabled: true, reachable: false, available: false, status: null } }));
+  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateways: [] }), /sitegw/);
+  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateways: [{ id: "a", enabled: false, reachable: null }] }), /sitegw/);
+  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateways: [{ id: "a", enabled: true, reachable: null }] }), /sitegw/, "unknown before the first check");
+  const down = parseExposition(renderPrometheusMetrics([], { siteGateways: [{ id: "a", enabled: true, reachable: false, available: false, status: null }] }));
   assert.deepEqual([...down.keys()].filter((k) => k.includes("sitegw")), ["sparkdash_sitegw_up"]);
   assert.equal(down.get("sparkdash_sitegw_up").samples[0].value, 0);
-  const live = parseExposition(renderPrometheusMetrics([], { siteGateway: { enabled: true, reachable: true, available: true, mode: "liveness", status: null } }));
+  const live = parseExposition(renderPrometheusMetrics([], { siteGateways: [{ id: "a", enabled: true, reachable: true, available: true, mode: "liveness", status: null }] }));
   assert.deepEqual([...live.keys()].filter((k) => k.includes("sitegw")), ["sparkdash_sitegw_up"]);
+});
+
+test("Site Gateway series carry the gateway label so several gateways stay apart", () => {
+  const second = gatewaySnapshot();
+  second.status.traffic.services[0] = { ...second.status.traffic.services[0], status5xx: 9 };
+  const text = renderPrometheusMetrics([], {
+    siteGateways: [{ id: "gz", ...gatewaySnapshot() }, { id: "bj", ...second }, { id: "down", enabled: true, reachable: false, available: false, status: null }],
+  });
+  const families = parseExposition(text);
+  assert.deepEqual(families.get("sparkdash_sitegw_up").samples.map((s) => [s.labels.gateway, s.value]), [["gz", 1], ["bj", 1], ["down", 0]]);
+  assert.equal(valueOf(families, "sparkdash_sitegw_requests", { gateway: "gz", service: "deepseek-v41", class: "5xx" }), 1);
+  assert.equal(valueOf(families, "sparkdash_sitegw_requests", { gateway: "bj", service: "deepseek-v41", class: "5xx" }), 9);
+  for (const name of ["sparkdash_sitegw_service_up", "sparkdash_sitegw_requests", "sparkdash_sitegw_inflight", "sparkdash_sitegw_latency_p95_seconds"]) {
+    assert.ok(families.get(name).samples.every((s) => s.labels.gateway), `${name} always has a gateway label`);
+  }
 });

@@ -32,5 +32,8 @@ test("isolatedConfigEnv keeps every file inside the given directory", () => {
   for (const name of [...CONFIG_PATH_VARS, ...CONFIG_DIR_VARS]) assert.ok(env[name].startsWith(`${dir}${path.sep}`), env[name]);
   assert.equal(env.SPARKDASH_INFERENCE_ACTIVITY_URL, "");
   assert.equal(env.SPARKDASH_INFERENCE_ACTIVITY_LABELS, "");
-  assert.equal(Object.keys(env).length, CONFIG_PATH_VARS.length + CONFIG_DIR_VARS.length + 2);
+  // Nor may a Site Gateway be seeded from the environment of whoever runs the tests.
+  assert.equal(env.SPARKDASH_SITEGW_URL, "");
+  assert.equal(env.SPARKDASH_SITEGW_TOKEN, "");
+  assert.equal(Object.keys(env).length, CONFIG_PATH_VARS.length + CONFIG_DIR_VARS.length + 4);
 });

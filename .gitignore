@@ -21,6 +21,7 @@ config/fleet-energy-monthly.json*
 config/fleet-energy-monthly.unreadable-*
 config/.fleet-energy.json.*.tmp
 config/alerts.json
+config/site-gateways.json
 config/alerts.json.*
 config/gpu-memory.json
 config/gpu-memory.json.*

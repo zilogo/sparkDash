@@ -7,6 +7,9 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ─── Spark config file path ──────────────────────────────
 const SPARKS_JSON_PATH = process.env.SPARKS_JSON_PATH || path.join(ROOT, "config", "sparks.json");
+const SITE_GATEWAYS_JSON_PATH =
+  process.env.SITE_GATEWAYS_JSON_PATH || path.join(ROOT, "config", "site-gateways.json");
+
 const GPU_MEMORY_JSON_PATH =
   process.env.GPU_MEMORY_JSON_PATH || path.join(ROOT, "config", "gpu-memory.json");
 /** Encrypted SSH password store (never served by API; lives on config volume). */
@@ -215,6 +218,7 @@ export {
   SPARKS_JSON_PATH,
   GPU_MEMORY_JSON_PATH,
   SPARKS_SECRETS_PATH,
+  SITE_GATEWAYS_JSON_PATH,
   SECRETS_KEY_PATH,
   LLM_DAILY_JSON_PATH,
   LLM_TOKEN_JSON_PATH,

@@ -175,7 +175,7 @@ export const METRIC_FAMILIES = [
   {
     name: "sparkdash_sitegw_up",
     type: "gauge",
-    help: "1 when the Site Gateway answered its last check (ops status or /healthz), 0 when unreachable. Absent until the first check or when Site Gateway monitoring is not configured.",
+    help: "1 when the Site Gateway (label gateway = its id) answered its last check (ops status or /healthz), 0 when unreachable. Absent until the first check.",
   },
   {
     name: "sparkdash_sitegw_service_up",
@@ -616,19 +616,20 @@ export function unitMetricJson(entry) {
   return out;
 }
 
-/** Site Gateway series from the store's snapshot; unknown is left out, not zero. */
+/** Site Gateway series from one gateway's snapshot, labelled by its id; unknown is left out, not zero. */
 function addSiteGateway(samples, gateway) {
   if (!gateway?.enabled || gateway.reachable == null) return;
-  samples.add("sparkdash_sitegw_up", {}, gateway.reachable === true ? 1 : 0);
+  const base = { gateway: gateway.id };
+  samples.add("sparkdash_sitegw_up", base, gateway.reachable === true ? 1 : 0);
   const status = gateway.available ? gateway.status : null;
   if (!status) return;
   for (const service of status.services || []) {
     if (!service.enabled) continue;
-    if (service.status === "ready") samples.add("sparkdash_sitegw_service_up", { service: service.id }, 1);
-    else if (service.status === "degraded") samples.add("sparkdash_sitegw_service_up", { service: service.id }, 0);
+    if (service.status === "ready") samples.add("sparkdash_sitegw_service_up", { ...base, service: service.id }, 1);
+    else if (service.status === "degraded") samples.add("sparkdash_sitegw_service_up", { ...base, service: service.id }, 0);
   }
   for (const row of status.traffic?.services || []) {
-    const labels = { service: row.service };
+    const labels = { ...base, service: row.service };
     samples.add("sparkdash_sitegw_requests", { ...labels, class: "2xx" }, row.status2xx);
     samples.add("sparkdash_sitegw_requests", { ...labels, class: "4xx" }, row.status4xx);
     samples.add("sparkdash_sitegw_requests", { ...labels, class: "5xx" }, row.status5xx);
@@ -641,13 +642,13 @@ function addSiteGateway(samples, gateway) {
  * Render the fleet as Prometheus text exposition format 0.0.4.
  * @param {Array<object | { snapshot: object, collected?: { gpu?: boolean, cpu?: boolean }, collectedAt?: Record<string, number> }>} entries
  *   unit snapshots (SparkMonitor#snapshot()), optionally wrapped with provenance
- * @param {{ siteGateway?: object }} [extras] fleet-level sources; `siteGateway` is SiteGatewayStore#snapshot()
+ * @param {{ siteGateways?: object[] }} [extras] fleet-level sources; `siteGateways` is SiteGatewayRegistry#snapshots()
  * @returns {string}
  */
 export function renderPrometheusMetrics(entries, extras = {}) {
   const samples = new SampleSet();
   for (const entry of entries || []) addUnit(samples, entry);
-  addSiteGateway(samples, extras?.siteGateway);
+  for (const gateway of extras?.siteGateways || []) addSiteGateway(samples, gateway);
   return samples.render();
 }
 

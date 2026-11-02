@@ -12,7 +12,8 @@
  *     secrets: { [sparkId]: "<encrypted ssh password>" },
  *     llmApiKeys: { [sparkId]: "<encrypted JSON { \"8000\": \"sk-…\" }>" },
  *     alertChannels: { [channelId]: "<encrypted alert channel URL>" },   (optional)
- *     helperTokens: { [helperId]: "<encrypted helper bearer>" }          (optional)
+ *     helperTokens: { [helperId]: "<encrypted helper bearer>" },         (optional)
+ *     siteGatewayTokens: { [gatewayId]: "<encrypted ops token>" }        (optional)
  *   }
  *
  * Alert channel URLs (an ntfy topic, a Discord or Slack webhook) are the
@@ -254,6 +255,7 @@ export function loadSecrets() {
 export function saveSecrets(passwords, llmApiKeys = new Map()) {
   const alertChannels = readRawSection("alertChannels");
   const helperTokens = readRawSection("helperTokens");
+  const siteGatewayTokens = readRawSection("siteGatewayTokens");
   const hasPasswords = passwords && passwords.size > 0;
   let hasKeys = false;
   if (llmApiKeys) {
@@ -269,7 +271,8 @@ export function saveSecrets(passwords, llmApiKeys = new Map()) {
     !hasPasswords &&
     !hasKeys &&
     Object.keys(alertChannels).length === 0 &&
-    Object.keys(helperTokens).length === 0
+    Object.keys(helperTokens).length === 0 &&
+    Object.keys(siteGatewayTokens).length === 0
   ) {
     clearSecretsFile();
     return;
@@ -297,7 +300,7 @@ export function saveSecrets(passwords, llmApiKeys = new Map()) {
     }
   }
 
-  writeSecretsFile({ secrets, llmApiKeys: llmOut, alertChannels, helperTokens });
+  writeSecretsFile({ secrets, llmApiKeys: llmOut, alertChannels, helperTokens, siteGatewayTokens });
   const keyCount = Object.keys(llmOut).length;
   console.log(
     `[secretsStore] Saved ${Object.keys(secrets).length} SSH password(s)` +
@@ -320,10 +323,12 @@ export function saveHelperTokens(helperTokens) {
   let secrets;
   let llmApiKeys;
   let alertChannels;
+  let siteGatewayTokens;
   try {
     secrets = readRawSection("secrets");
     llmApiKeys = readRawSection("llmApiKeys");
     alertChannels = readRawSection("alertChannels");
+    siteGatewayTokens = readRawSection("siteGatewayTokens");
   } catch (err) {
     throw new Error(`secrets file is corrupt: ${err.message}`);
   }
@@ -336,12 +341,13 @@ export function saveHelperTokens(helperTokens) {
     Object.keys(secrets).length === 0 &&
     Object.keys(llmApiKeys).length === 0 &&
     Object.keys(alertChannels).length === 0 &&
-    Object.keys(helpers).length === 0
+    Object.keys(helpers).length === 0 &&
+    Object.keys(siteGatewayTokens).length === 0
   ) {
     clearSecretsFile();
     return;
   }
-  writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens: helpers });
+  writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens: helpers, siteGatewayTokens });
 }
 
 // ─── File sections ───────────────────────────────────────
@@ -383,11 +389,12 @@ function clearSecretsFile() {
   }
 }
 
-/** Write every section. Empty alertChannels and helperTokens sections are left out of the file. */
-function writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens }) {
+/** Write every section. Empty alertChannels, helperTokens and siteGatewayTokens sections are left out of the file. */
+function writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens, siteGatewayTokens }) {
   const body = { version: 2, secrets, llmApiKeys };
   if (alertChannels && Object.keys(alertChannels).length > 0) body.alertChannels = alertChannels;
   if (helperTokens && Object.keys(helperTokens).length > 0) body.helperTokens = helperTokens;
+  if (siteGatewayTokens && Object.keys(siteGatewayTokens).length > 0) body.siteGatewayTokens = siteGatewayTokens;
   atomicWrite(SPARKS_SECRETS_PATH, JSON.stringify(body, null, 2) + "\n", 0o644);
 }
 
@@ -442,6 +449,7 @@ export function saveAlertChannelUrls(urls, opts = {}) {
   const secrets = readRawSection("secrets");
   const llmApiKeys = readRawSection("llmApiKeys");
   const helperTokens = readRawSection("helperTokens");
+  const siteGatewayTokens = readRawSection("siteGatewayTokens");
   const existing = readRawSection("alertChannels");
   /** @type {Record<string, string>} */
   const alertChannels = {};
@@ -462,10 +470,92 @@ export function saveAlertChannelUrls(urls, opts = {}) {
     Object.keys(secrets).length === 0 &&
     Object.keys(llmApiKeys).length === 0 &&
     Object.keys(alertChannels).length === 0 &&
-    Object.keys(helperTokens).length === 0
+    Object.keys(helperTokens).length === 0 &&
+    Object.keys(siteGatewayTokens).length === 0
   ) {
     clearSecretsFile();
     return;
   }
-  writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens });
+  writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens, siteGatewayTokens });
+}
+
+// ─── Site Gateway ops tokens ─────────────────────────────
+
+/**
+ * Decrypted Site Gateway ops tokens, gateway id → token. A token that cannot be
+ * decrypted is left out (and logged); never throws.
+ * @returns {Map<string, string>}
+ */
+export function loadSiteGatewayTokens() {
+  /** @type {Map<string, string>} */
+  const tokens = new Map();
+  let section;
+  try {
+    section = readRawSection("siteGatewayTokens");
+  } catch (err) {
+    console.error(`[secretsStore] Failed to load Site Gateway tokens: ${err.message}`);
+    return tokens;
+  }
+  if (Object.keys(section).length === 0) return tokens;
+  let failed = 0;
+  try {
+    const key = resolveKey();
+    for (const [id, blob] of Object.entries(section)) {
+      try {
+        const token = decrypt(blob, key);
+        if (token) tokens.set(id, token);
+      } catch {
+        failed += 1;
+      }
+    }
+  } catch (err) {
+    console.error(`[secretsStore] Failed to load Site Gateway tokens: ${err.message}`);
+    return tokens;
+  }
+  if (failed > 0) {
+    console.warn(`[secretsStore] ${failed} Site Gateway token(s) could not be decrypted — enter them again on the Site Gateways page`);
+  }
+  return tokens;
+}
+
+/**
+ * Replace the stored Site Gateway ops tokens (encrypted). Every other section
+ * stays exactly as on disk. A stored token that cannot be decrypted is kept
+ * while its gateway is still configured (`keepIds`). Throws when the file
+ * cannot be read or written.
+ * @param {Map<string, string>} tokens gateway id → token
+ * @param {{ keepIds?: Iterable<string> }} [opts] ids of the gateways that are still configured
+ */
+export function saveSiteGatewayTokens(tokens, opts = {}) {
+  const secrets = readRawSection("secrets");
+  const llmApiKeys = readRawSection("llmApiKeys");
+  const alertChannels = readRawSection("alertChannels");
+  const helperTokens = readRawSection("helperTokens");
+  const existing = readRawSection("siteGatewayTokens");
+  /** @type {Record<string, string>} */
+  const siteGatewayTokens = {};
+  const entries = tokens ? [...tokens.entries()].filter(([id, token]) => id && token) : [];
+  const keep = new Set(opts.keepIds || []);
+  const needKey = entries.length > 0 || Object.keys(existing).length > 0;
+  const key = needKey ? resolveKey() : null;
+  for (const [id, token] of entries) siteGatewayTokens[id] = encrypt(String(token), key);
+  for (const [id, blob] of Object.entries(existing)) {
+    if (siteGatewayTokens[id] || !keep.has(id)) continue;
+    try {
+      decrypt(blob, key);
+    } catch {
+      siteGatewayTokens[id] = blob;
+    }
+  }
+  if (
+    Object.keys(secrets).length === 0 &&
+    Object.keys(llmApiKeys).length === 0 &&
+    Object.keys(alertChannels).length === 0 &&
+    Object.keys(helperTokens).length === 0 &&
+    Object.keys(siteGatewayTokens).length === 0
+  ) {
+    clearSecretsFile();
+    return;
+  }
+  writeSecretsFile({ secrets, llmApiKeys, alertChannels, helperTokens, siteGatewayTokens });
 }

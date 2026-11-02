@@ -4,7 +4,7 @@ import { strict as assert } from "node:assert";
 import { AlertEngine, MIN_CLEAR_MS } from "../engine.js";
 import { RULES, ruleById } from "../conditions.js";
 import { clock, quietLog } from "./fixtures.js";
-import { SITE_GATEWAY_UNIT_ID, siteGatewayAlertUnit } from "../../collectors/SiteGatewayProbe.js";
+import { SITE_GATEWAY_UNIT_PREFIX, siteGatewayAlertUnit } from "../../collectors/SiteGatewayProbe.js";
 
 function setup() {
   const now = clock();
@@ -16,6 +16,8 @@ function setup() {
   });
   return { now, sent, engine };
 }
+
+const GZ = { id: "gz", name: "Guomao GW" };
 
 const okStatus = (service) => ({
   windowSeconds: 300,
@@ -31,12 +33,12 @@ test("catalogue lists the three Site Gateway rules", () => {
 
 test("an unreachable gateway fires offline under the gateway's page id and resolves on recovery", () => {
   const { now, engine } = setup();
-  engine.evaluate([siteGatewayAlertUnit({ enabled: true, reachable: false })]);
+  engine.evaluate([siteGatewayAlertUnit({ enabled: true, reachable: false }, GZ)]);
   const [alert] = engine.active();
-  assert.equal(alert.unitId, SITE_GATEWAY_UNIT_ID);
-  assert.equal(alert.unitName, "Site Gateway");
+  assert.equal(alert.unitId, `${SITE_GATEWAY_UNIT_PREFIX}gz`);
+  assert.equal(alert.unitName, "Guomao GW");
   assert.equal(alert.ruleId, "offline");
-  const recovered = siteGatewayAlertUnit({ enabled: true, reachable: true, available: true, mode: "liveness", status: null });
+  const recovered = siteGatewayAlertUnit({ enabled: true, reachable: true, available: true, mode: "liveness", status: null }, GZ);
   engine.evaluate([recovered]);
   assert.equal(engine.active().length, 1, "stays firing until it has been clear for a while");
   now.advance(MIN_CLEAR_MS);
@@ -50,10 +52,21 @@ test("a degraded backend raises sitegw-degraded; turning monitoring off ends it"
     enabled: true, reachable: true, available: true, mode: "ops",
     status: okStatus([{ id: "deepseek-v41", enabled: true, status: "degraded" }]),
   };
-  engine.evaluate([siteGatewayAlertUnit(snapshot)]);
+  engine.evaluate([siteGatewayAlertUnit(snapshot, GZ)]);
   assert.deepEqual(engine.active().map((a) => a.ruleId), ["sitegw-degraded"]);
   assert.match(engine.active()[0].summary, /deepseek-v41/);
   // Monitoring removed from the configuration: the unit is gone, so its alerts end.
   engine.evaluate([]);
   assert.equal(engine.active().length, 0);
+});
+
+test("each gateway alerts under its own page id; removing one ends only its alerts", () => {
+  const { engine } = setup();
+  const a = siteGatewayAlertUnit({ enabled: true, reachable: false }, { id: "gz", name: "Guomao" });
+  const b = siteGatewayAlertUnit({ enabled: true, reachable: false }, { id: "bj", name: "Beijing" });
+  engine.evaluate([a, b]);
+  assert.deepEqual(engine.active().map((x) => x.unitId).sort(), ["sitegw:bj", "sitegw:gz"]);
+  engine.evaluate([a]);
+  assert.deepEqual(engine.active().map((x) => x.unitId), ["sitegw:gz"]);
+  assert.equal(siteGatewayAlertUnit({ enabled: true, reachable: false }, {}), null, "no id, no unit");
 });

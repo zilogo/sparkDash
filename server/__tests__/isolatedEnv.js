@@ -10,6 +10,7 @@ import path from "node:path";
 export const CONFIG_PATH_VARS = [
   "SPARKS_JSON_PATH",
   "SPARKS_SECRETS_PATH",
+  "SITE_GATEWAYS_JSON_PATH",
   "SECRETS_KEY_PATH",
   "SETTINGS_JSON_PATH",
   "LLM_DAILY_JSON_PATH",
@@ -45,6 +46,9 @@ export function isolatedConfigEnv(dir) {
     // Tests must not contact an operator's opt-in inference activity source.
     SPARKDASH_INFERENCE_ACTIVITY_URL: "",
     SPARKDASH_INFERENCE_ACTIVITY_LABELS: "",
+    // Nor a Site Gateway seeded from the environment of whoever runs the tests.
+    SPARKDASH_SITEGW_URL: "",
+    SPARKDASH_SITEGW_TOKEN: "",
     ...Object.fromEntries(
       CONFIG_PATH_VARS.map((name) => [
         name,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  SITE_GATEWAY_UNIT_ID, SiteGatewayStore, parseHealthz, parseStatus, siteGatewayAlertUnit, siteGatewayFindings, siteGatewayUrl,
+  SITE_GATEWAY_UNIT_PREFIX, SiteGatewayStore, parseHealthz, parseStatus, probeSiteGatewayOnce, siteGatewayAlertUnit, siteGatewayFindings, siteGatewayHeadline, siteGatewayUrl,
 } from "../SiteGatewayProbe.js";
 
 const TOKEN = "ops-secret-token-value";
@@ -226,13 +226,47 @@ test("findings: degraded backend, 5xx rate with a request floor, sustained 429",
 });
 
 test("alert unit: absent when disabled or not yet checked, offline when unreachable", () => {
-  assert.equal(siteGatewayAlertUnit({ enabled: false, reachable: null }), null);
-  assert.equal(siteGatewayAlertUnit({ enabled: true, reachable: null }), null);
-  const down = siteGatewayAlertUnit({ enabled: true, reachable: false });
-  assert.equal(down.id, SITE_GATEWAY_UNIT_ID);
+  assert.equal(siteGatewayAlertUnit({ enabled: false, reachable: null }, { id: "g" }), null);
+  assert.equal(siteGatewayAlertUnit({ enabled: true, reachable: null }, { id: "g" }), null);
+  const down = siteGatewayAlertUnit({ enabled: true, reachable: false }, { id: "gz", name: "Guomao" });
+  assert.equal(down.id, `${SITE_GATEWAY_UNIT_PREFIX}gz`);
+  assert.equal(down.name, "Guomao");
   assert.equal(down.online, false);
   assert.match(down.offlineReason, /unreachable/);
-  const up = siteGatewayAlertUnit({ enabled: true, reachable: true, available: true, mode: "ops", status: parseStatus(statusPayload()) });
+  const up = siteGatewayAlertUnit({ enabled: true, reachable: true, available: true, mode: "ops", status: parseStatus(statusPayload()) }, { id: "gz" });
   assert.equal(up.online, true);
   assert.equal(up.health[0].id, "sitegw-degraded");
+});
+
+test("headline: numbers from a fresh ops snapshot, all null otherwise", () => {
+  const status = parseStatus(statusPayload());
+  const head = siteGatewayHeadline({ available: true, mode: "ops", status });
+  assert.equal(head.servicesTotal, status.services.filter((s) => s.enabled).length);
+  assert.equal(head.requests, status.traffic.services.reduce((sum, r) => sum + r.requests, 0));
+  assert.equal(head.windowSeconds, 300);
+  assert.ok(head.errorRate == null || (head.errorRate >= 0 && head.errorRate <= 1));
+  for (const snap of [null, { available: false, mode: "ops", status }, { available: true, mode: "liveness", status: null }]) {
+    assert.deepEqual(Object.values(siteGatewayHeadline(snap)), Array(8).fill(null));
+  }
+});
+
+test("probeSiteGatewayOnce: ops, liveness fallback, invalid URL, unreachable; never echoes URL or token", async () => {
+  const seen = [];
+  const good = (target, opts) => {
+    seen.push({ target, token: opts?.token });
+    if (target.includes("/ops/")) return opts?.token === TOKEN ? statusPayload() : Promise.reject(new Error(`401 at ${target}`));
+    return { status: "ok" };
+  };
+  const ops = await probeSiteGatewayOnce({ url: "http://100.64.0.21:8200", token: TOKEN, read: async (t, o) => good(t, o) });
+  assert.deepEqual({ ok: ops.ok, mode: ops.mode, siteId: ops.siteId }, { ok: true, mode: "ops", siteId: "site-01" });
+  assert.ok(ops.services > 0);
+  const bare = await probeSiteGatewayOnce({ url: "http://100.64.0.21:8200", read: async (t, o) => good(t, o) });
+  assert.deepEqual({ ok: bare.ok, mode: bare.mode, error: bare.error }, { ok: true, mode: "liveness", error: null });
+  const wrong = await probeSiteGatewayOnce({ url: "http://100.64.0.21:8200", token: "nope-nope", read: async (t, o) => good(t, o) });
+  assert.deepEqual({ ok: wrong.ok, mode: wrong.mode, error: wrong.error }, { ok: true, mode: "liveness", error: "site-gateway-ops-unavailable" });
+  const invalid = await probeSiteGatewayOnce({ url: "http://8.8.8.8", token: TOKEN, read: async () => { throw new Error("must not read"); } });
+  assert.equal(invalid.error, "site-gateway-url-invalid");
+  const down = await probeSiteGatewayOnce({ url: "http://100.64.0.21:8200", token: TOKEN, read: async (t) => { throw new Error(`connect ECONNREFUSED ${t} ${TOKEN}`); } });
+  assert.deepEqual({ ok: down.ok, mode: down.mode, reachable: down.reachable, error: down.error }, { ok: false, mode: "unavailable", reachable: false, error: "site-gateway-unreachable" });
+  assert.doesNotMatch(JSON.stringify([ops, bare, wrong, invalid, down]), new RegExp(`${TOKEN}|100\\.64\\.0\\.21`));
 });

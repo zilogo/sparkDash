@@ -6,8 +6,8 @@ import { isIP } from "node:net";
  * Reads the gateway's read-only ops endpoint (`GET /ops/v1/status`, a separate
  * monitoring key) and, when that is unavailable or no key is configured, falls
  * back to the unauthenticated `GET /healthz` so a bare URL still gives liveness.
- * URL and token are server-side configuration only: the token is never part of
- * a snapshot, a log line or an error message.
+ * The token is never part of a snapshot, a log line or an error message. One
+ * SiteGatewayStore watches one gateway; SiteGatewayRegistry owns many.
  */
 
 const POLL_INTERVAL_MS = 5_000;
@@ -243,18 +243,19 @@ export function siteGatewayFindings(snapshot) {
 }
 
 /**
- * The gateway as a pseudo-unit for the alert engine, which only knows units:
+ * A gateway as a pseudo-unit for the alert engine, which only knows units:
  * "offline" is the gateway being unreachable, its findings ride on `health`.
- * Null when monitoring is not configured, so its alerts end with the setting.
- * Its id doubles as the Site Gateway page id, so a click on an alert opens the page.
+ * Null until the first check has finished, so a gateway that is removed (or not
+ * yet polled) raises nothing. The id is `sitegw:<gatewayId>`, which is also the
+ * page id of that gateway's detail page, so a click on an alert opens it.
  */
-export const SITE_GATEWAY_UNIT_ID = "__site_gateway__";
+export const SITE_GATEWAY_UNIT_PREFIX = "sitegw:";
 
-export function siteGatewayAlertUnit(snapshot) {
-  if (!snapshot?.enabled || snapshot.reachable == null) return null;
+export function siteGatewayAlertUnit(snapshot, { id, name } = {}) {
+  if (!snapshot?.enabled || snapshot.reachable == null || !id) return null;
   return {
-    id: SITE_GATEWAY_UNIT_ID,
-    name: "Site Gateway",
+    id: `${SITE_GATEWAY_UNIT_PREFIX}${id}`,
+    name: name || id,
     online: snapshot.reachable === true,
     offlineReason: snapshot.reachable === true ? null : "Site Gateway unreachable",
     metrics: {},
@@ -262,9 +263,64 @@ export function siteGatewayAlertUnit(snapshot) {
   };
 }
 
+/**
+ * Headline numbers for a gateway list card. Everything is null when the
+ * ops document is not fresh: unknown is never shown as zero.
+ */
+export function siteGatewayHeadline(snapshot) {
+  const status = snapshot?.available && snapshot.mode === "ops" ? snapshot.status : null;
+  if (!status) {
+    return { servicesReady: null, servicesTotal: null, inflightTotal: null, requests: null, status5xx: null, errorRate: null, p95Ms: null, windowSeconds: null };
+  }
+  const enabled = status.services.filter((s) => s.enabled);
+  const rows = status.traffic.services;
+  const requests = rows.reduce((sum, r) => sum + r.requests, 0);
+  const status5xx = rows.reduce((sum, r) => sum + r.status5xx, 0);
+  const p95s = rows.map((r) => r.latencyMs?.p95).filter((v) => typeof v === "number");
+  return {
+    servicesReady: enabled.filter((s) => s.status === "ready").length,
+    servicesTotal: enabled.length,
+    inflightTotal: status.traffic.inflightTotal,
+    requests,
+    status5xx,
+    errorRate: requests > 0 ? status5xx / requests : null,
+    p95Ms: p95s.length ? Math.max(...p95s) : null,
+    windowSeconds: status.windowSeconds,
+  };
+}
+
+/**
+ * One ephemeral check for the "Test connection" button. Never stores anything and
+ * never echoes the URL or token: only a mode, a reachability flag and a short code.
+ * @returns {Promise<{ ok: boolean, mode: "ops"|"liveness"|"unavailable", reachable: boolean, error: string|null, siteId: string|null, services: number|null }>}
+ */
+export async function probeSiteGatewayOnce({ url, token, read = readJson } = {}) {
+  const base = siteGatewayUrl(url);
+  const fail = (error, reachable = false) => ({ ok: false, mode: "unavailable", reachable, error, siteId: null, services: null });
+  if (!base) return fail("site-gateway-url-invalid");
+  const bearer = typeof token === "string" && token.trim() ? token.trim() : null;
+  let opsFailed = false;
+  if (bearer) {
+    try {
+      const parsed = parseStatus(await read(`${base}/ops/v1/status?window=${WINDOW_MINUTES}`, { token: bearer }));
+      if (parsed) return { ok: true, mode: "ops", reachable: true, error: null, siteId: parsed.siteId, services: parsed.services.length };
+    } catch {
+      // fall through to the liveness probe
+    }
+    opsFailed = true;
+  }
+  try {
+    if (parseHealthz(await read(`${base}/healthz`, {}))) {
+      return { ok: true, mode: "liveness", reachable: true, error: opsFailed ? "site-gateway-ops-unavailable" : null, siteId: null, services: null };
+    }
+  } catch {
+    // unreachable
+  }
+  return fail("site-gateway-unreachable");
+}
+
 export class SiteGatewayStore {
-  constructor({ url = process.env.SPARKDASH_SITEGW_URL, token = process.env.SPARKDASH_SITEGW_TOKEN,
-    read = readJson, now = () => Date.now() } = {}) {
+  constructor({ url, token, read = readJson, now = () => Date.now() } = {}) {
     this.enabled = typeof url === "string" && url.trim() !== "";
     this.base = siteGatewayUrl(url);
     this.token = typeof token === "string" && token.trim() !== "" ? token.trim() : null;

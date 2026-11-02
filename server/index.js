@@ -52,7 +52,7 @@ import {
 } from "./collectors/QualityBench.js";
 import { showcaseManager } from "./collectors/ShowcaseManager.js";
 import { InferenceActivityStore } from "./collectors/InferenceActivity.js";
-import { SiteGatewayStore, siteGatewayAlertUnit } from "./collectors/SiteGatewayProbe.js";
+import { SiteGatewayRegistry, SiteGatewayError } from "./sitegateway/SiteGatewayRegistry.js";
 import { llmProbeHost } from "./collectors/llmHost.js";
 import { onceClose, resolveLlmHttpTarget } from "./collectors/llmTunnel.js";
 import { formatLlmBaseUrl, parseLlmTargetInput } from "../src/shared/llmTarget.js";
@@ -304,10 +304,11 @@ function consumeBenchStartQuota(req, res) {
 // ─── Spark registry ──────────────────────────────────────
 const registry = new SparkRegistry();
 const inferenceActivity = new InferenceActivityStore();
-// Optional Site Gateway monitoring (URL and ops key are server-side only). Polled on
-// its own timer so alerts and /metrics work with no dashboard open.
-const siteGateway = new SiteGatewayStore();
-if (siteGateway.enabled) setInterval(() => { siteGateway.refreshIfDue().catch(() => {}); }, 5_000).unref();
+// Site Gateways configured in the UI (URLs in config/site-gateways.json, ops tokens
+// encrypted in the secrets store). Polled on a timer of their own so alerts and
+// /metrics work with no dashboard open.
+const siteGateways = new SiteGatewayRegistry();
+siteGateways.start();
 const occupancy = createOccupancyRuntime({ listSparks: () => registry.sparks });
 
 const fleetEnergyTracker = new FleetEnergyTracker({
@@ -765,7 +766,7 @@ app.put("/api/sparks/order", (req, res) => {
 
 // ─── Global settings ──────────────────────────────────────
 app.get("/api/settings", (_req, res) => {
-  res.json({ ...getSettings(), inferenceActivityEnabled: inferenceActivity.enabled, siteGatewayEnabled: siteGateway.enabled });
+  res.json({ ...getSettings(), inferenceActivityEnabled: inferenceActivity.enabled, siteGatewayEnabled: siteGateways.count > 0, siteGatewayCount: siteGateways.count });
 });
 
 app.put("/api/settings", (req, res) => {
@@ -782,7 +783,7 @@ app.put("/api/settings", (req, res) => {
     }
     // MQTT broker URL / prefix / enablement changed: reconnect (a no-op otherwise).
     mqttPublisher.applySettings();
-    res.json({ ...newSettings, inferenceActivityEnabled: inferenceActivity.enabled, siteGatewayEnabled: siteGateway.enabled });
+    res.json({ ...newSettings, inferenceActivityEnabled: inferenceActivity.enabled, siteGatewayEnabled: siteGateways.count > 0, siteGatewayCount: siteGateways.count });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -794,10 +795,73 @@ app.get("/api/inference/activity", async (_req, res) => {
   res.set("Cache-Control", "no-store").json(inferenceActivity.snapshot());
 });
 
-// Optional Site Gateway status; the URL and the ops key can only be set on the server.
+// Site Gateways: list, detail, and the UI-driven registry. Ops tokens are write-only:
+// no response, log line or error carries one (only `tokenConfigured`).
+const siteGatewayFail = (res, err) => {
+  if (err instanceof SiteGatewayError) return res.status(err.status).json({ error: err.message });
+  console.error(`[site-gateways] ${err?.message || err}`);
+  return res.status(500).json({ error: "Site Gateway request failed" });
+};
+
+app.get("/api/site-gateways", async (_req, res) => {
+  await siteGateways.refreshAll();
+  res.set("Cache-Control", "no-store").json({ enabled: siteGateways.count > 0, gateways: siteGateways.summaries() });
+});
+
+app.post("/api/site-gateways/test", async (req, res) => {
+  try {
+    const { url, token, id } = req.body || {};
+    res.set("Cache-Control", "no-store").json(await siteGateways.test({ url, token, id }));
+  } catch (err) {
+    siteGatewayFail(res, err);
+  }
+});
+
+app.post("/api/site-gateways", (req, res) => {
+  try {
+    const { name, url, token } = req.body || {};
+    res.status(201).json({ success: true, gateway: siteGateways.add({ name, url, token }) });
+  } catch (err) {
+    siteGatewayFail(res, err);
+  }
+});
+
+app.get("/api/site-gateways/:id", async (req, res) => {
+  if (!siteGateways.has(req.params.id)) return res.status(404).json({ error: "Site Gateway not found" });
+  await siteGateways.refreshIfDue(req.params.id);
+  const snapshot = siteGateways.snapshot(req.params.id);
+  if (!snapshot) return res.status(404).json({ error: "Site Gateway not found" });
+  res.set("Cache-Control", "no-store").json(snapshot);
+});
+
+app.patch("/api/site-gateways/:id", (req, res) => {
+  try {
+    const { name, url, token } = req.body || {};
+    res.json({ success: true, gateway: siteGateways.update(req.params.id, { name, url, token }) });
+  } catch (err) {
+    siteGatewayFail(res, err);
+  }
+});
+
+app.delete("/api/site-gateways/:id", (req, res) => {
+  try {
+    siteGateways.remove(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    siteGatewayFail(res, err);
+  }
+});
+
+// Back-compat alias of the single-gateway API: the first gateway's snapshot, or the old "off" shape.
 app.get("/api/site-gateway", async (_req, res) => {
-  await siteGateway.refreshIfDue();
-  res.set("Cache-Control", "no-store").json(siteGateway.snapshot());
+  const first = siteGateways.ids()[0];
+  if (!first) {
+    return res.set("Cache-Control", "no-store").json({
+      enabled: false, tokenConfigured: false, available: false, reachable: null, mode: null, generatedAt: null, error: null, status: null, samples: [],
+    });
+  }
+  await siteGateways.refreshIfDue(first);
+  res.set("Cache-Control", "no-store").json(siteGateways.snapshot(first));
 });
 
 // GET /api/sparks/:id/gpu-history (GPU raw tier, newest last) and /api/sparks/:id/history (bucketed tiers).
@@ -2305,7 +2369,7 @@ app.get("/metrics", (_req, res) => {
   // res.end, not res.send: send() reorders the media type parameters; keep the
   // header exactly as the exposition format spells it.
   res.setHeader("Content-Type", PROMETHEUS_CONTENT_TYPE);
-  res.end(renderPrometheusMetrics(entries, { siteGateway: siteGateway.snapshot() }));
+  res.end(renderPrometheusMetrics(entries, { siteGateways: siteGateways.snapshots() }));
 });
 
 // ─── Static files (built frontend) ───────────────────────
@@ -2512,8 +2576,8 @@ function startBroadcast() {
     // Alerts are evaluated once per fleet snapshot, before it goes out, so the
     // payload carries the alerts this very snapshot produced. They run whether
     // or not a dashboard is open.
-    const gatewayUnit = siteGatewayAlertUnit(siteGateway.snapshot());
-    alertsRuntime.tick(gatewayUnit ? [...sparks, gatewayUnit] : sparks);
+    const gatewayUnits = siteGateways.alertUnits();
+    alertsRuntime.tick(gatewayUnits.length ? [...sparks, ...gatewayUnits] : sparks);
     // MQTT subscribers are not dashboards, so publish before the no-client skip below.
     publishMqttFleet();
     // Nobody is listening: skip serialising every unit's snapshot. A client that
