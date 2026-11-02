@@ -46,6 +46,9 @@ export const RULES = Object.freeze([
   { id: "roce-link", source: "health", name: "RoCE link down", description: "Health finding: a RoCE port that was up went down.", defaults: { enabled: true, forSec: 60 } },
   { id: "roce-loss", source: "health", name: "RoCE packet loss", description: "Health finding: RoCE loss counters keep rising.", defaults: { enabled: true, forSec: 120 } },
   { id: "link-speed", source: "health", name: "Slow network link", description: "Health finding: the primary interface negotiated less than 1 Gb/s.", defaults: { enabled: true, forSec: 300 } },
+  { id: "sitegw-degraded", source: "health", name: "Site Gateway backend degraded", description: "Health finding: an enabled Site Gateway backend reports degraded (needs the Site Gateway ops key).", defaults: { enabled: true, forSec: 60 } },
+  { id: "sitegw-errors", source: "health", name: "Site Gateway 5xx rate", description: "Health finding: a Site Gateway backend answered more than 20 % 5xx over at least 10 requests in the last 5 minutes.", defaults: { enabled: true, forSec: 60 } },
+  { id: "sitegw-ratelimit", source: "health", name: "Site Gateway rate limiting", description: "Health finding: the Site Gateway answered 429 at least 5 times in the last 5 minutes.", defaults: { enabled: true, forSec: 120 } },
   // Advice rather than a fault, so it does not notify unless asked to.
   { id: "concurrency", source: "health", name: "Several models loaded", description: "Health finding: more than one model serving while memory is above 70 %.", defaults: { enabled: false, forSec: 300 } },
 ]);

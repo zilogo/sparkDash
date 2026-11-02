@@ -172,6 +172,31 @@ export const METRIC_FAMILIES = [
     type: "counter",
     help: "Prompt tokens served from the prefix cache, as counted by the engine since it last started.",
   },
+  {
+    name: "sparkdash_sitegw_up",
+    type: "gauge",
+    help: "1 when the Site Gateway answered its last check (ops status or /healthz), 0 when unreachable. Absent until the first check or when Site Gateway monitoring is not configured.",
+  },
+  {
+    name: "sparkdash_sitegw_service_up",
+    type: "gauge",
+    help: "1 when the Site Gateway reports this backend ready, 0 when degraded. Disabled and unknown backends are not exported. Needs the ops key.",
+  },
+  {
+    name: "sparkdash_sitegw_requests",
+    type: "gauge",
+    help: "Requests the Site Gateway handled for this backend in its status window (a gauge, not a counter: the window slides and the gateway restarts to zero), by response class (2xx, 4xx, 5xx).",
+  },
+  {
+    name: "sparkdash_sitegw_inflight",
+    type: "gauge",
+    help: "Requests currently in flight through the Site Gateway for this backend.",
+  },
+  {
+    name: "sparkdash_sitegw_latency_p95_seconds",
+    type: "gauge",
+    help: "95th percentile request duration for this backend over the gateway's status window (histogram bucket upper bound). Absent when the window had no requests.",
+  },
 ];
 
 const FAMILY_BY_NAME = new Map(METRIC_FAMILIES.map((f) => [f.name, f]));
@@ -591,15 +616,38 @@ export function unitMetricJson(entry) {
   return out;
 }
 
+/** Site Gateway series from the store's snapshot; unknown is left out, not zero. */
+function addSiteGateway(samples, gateway) {
+  if (!gateway?.enabled || gateway.reachable == null) return;
+  samples.add("sparkdash_sitegw_up", {}, gateway.reachable === true ? 1 : 0);
+  const status = gateway.available ? gateway.status : null;
+  if (!status) return;
+  for (const service of status.services || []) {
+    if (!service.enabled) continue;
+    if (service.status === "ready") samples.add("sparkdash_sitegw_service_up", { service: service.id }, 1);
+    else if (service.status === "degraded") samples.add("sparkdash_sitegw_service_up", { service: service.id }, 0);
+  }
+  for (const row of status.traffic?.services || []) {
+    const labels = { service: row.service };
+    samples.add("sparkdash_sitegw_requests", { ...labels, class: "2xx" }, row.status2xx);
+    samples.add("sparkdash_sitegw_requests", { ...labels, class: "4xx" }, row.status4xx);
+    samples.add("sparkdash_sitegw_requests", { ...labels, class: "5xx" }, row.status5xx);
+    samples.add("sparkdash_sitegw_inflight", labels, row.inflight);
+    if (finite(row.latencyMs?.p95)) samples.add("sparkdash_sitegw_latency_p95_seconds", labels, row.latencyMs.p95 / 1000);
+  }
+}
+
 /**
  * Render the fleet as Prometheus text exposition format 0.0.4.
  * @param {Array<object | { snapshot: object, collected?: { gpu?: boolean, cpu?: boolean }, collectedAt?: Record<string, number> }>} entries
  *   unit snapshots (SparkMonitor#snapshot()), optionally wrapped with provenance
+ * @param {{ siteGateway?: object }} [extras] fleet-level sources; `siteGateway` is SiteGatewayStore#snapshot()
  * @returns {string}
  */
-export function renderPrometheusMetrics(entries) {
+export function renderPrometheusMetrics(entries, extras = {}) {
   const samples = new SampleSet();
   for (const entry of entries || []) addUnit(samples, entry);
+  addSiteGateway(samples, extras?.siteGateway);
   return samples.render();
 }
 

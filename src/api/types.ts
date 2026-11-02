@@ -944,9 +944,92 @@ export interface InferenceActivity {
   overflowed: boolean;
 }
 
+export type SiteGatewayMode = "ops" | "liveness" | "unavailable";
+export type SiteGatewayServiceStatus = "ready" | "degraded" | "disabled" | "unknown";
+
+export interface SiteGatewayCounters {
+  requests: number;
+  inflight: number;
+  status2xx: number;
+  status4xx: number;
+  status5xx: number;
+  rateLimited: number;
+  timeouts: number;
+}
+
+export interface SiteGatewayService {
+  id: string;
+  kind: string;
+  enabled: boolean;
+  status: SiteGatewayServiceStatus;
+  checkedAt: string | null;
+  detail: {
+    httpStatus: number | null;
+    ready: boolean | null;
+    queueDepth: number | null;
+    workerBusy: boolean | null;
+    error: boolean;
+  };
+}
+
+export interface SiteGatewayTrafficService extends SiteGatewayCounters {
+  service: string;
+  /** 5xx / requests; null when the window had no requests. */
+  errorRate: number | null;
+  latencyMs: { p50: number | null; p95: number | null };
+}
+
+export interface SiteGatewayPrincipal extends SiteGatewayCounters {
+  principal: string;
+  service: string;
+}
+
+export interface SiteGatewayStatus {
+  siteId: string;
+  generatedAt: string | null;
+  startedAt: string | null;
+  uptimeSeconds: number | null;
+  windowSeconds: number;
+  limits: { maxConcurrentPerKey: number | null; rateLimitPerMinute: number | null };
+  services: SiteGatewayService[];
+  traffic: {
+    inflightTotal: number | null;
+    services: SiteGatewayTrafficService[];
+    principals: SiteGatewayPrincipal[];
+  };
+  /** Per-minute series kept by the gateway, oldest first. */
+  history: Array<{ ts: string; requests: number; status5xx: number | null; rateLimited: number | null }>;
+}
+
+/** GET /api/site-gateway. The URL and the ops key are server-side only and never appear here. */
+export interface SiteGatewaySnapshot {
+  enabled: boolean;
+  tokenConfigured: boolean;
+  available: boolean;
+  /** null until the first check has finished. */
+  reachable: boolean | null;
+  /** "ops" = full status, "liveness" = /healthz only, "unavailable" = no answer. */
+  mode: SiteGatewayMode | null;
+  generatedAt: string | null;
+  error: string | null;
+  status: SiteGatewayStatus | null;
+  /** The dashboard's own 30 s samples; unknown fields are null. */
+  samples: Array<{
+    t: string;
+    reachable: boolean;
+    requests: number | null;
+    status5xx: number | null;
+    rateLimited: number | null;
+    inflight: number | null;
+    degraded: number | null;
+  }>;
+}
+
 export interface Settings {
   /** Read-only server capability; configured through environment variables. */
   inferenceActivityEnabled?: boolean;
+  /** Read-only server capability: SPARKDASH_SITEGW_URL is set. */
+  siteGatewayEnabled?: boolean;
   pollIntervalMs: number;
   defaultLlmPort: number;
   autoHideOffline: boolean;

@@ -15,6 +15,7 @@ import type {
   FleetEnergy,
   HealthResponse,
   InferenceActivity,
+  SiteGatewaySnapshot,
   HermesBatchUpdateResponse,
   GpuClockStatus,
   FleetGpuClockResult,
@@ -83,6 +84,11 @@ export function fetchFleetEnergy(): Promise<FleetEnergy> {
 /** Optional, sanitized inference request activity from a configured private source. */
 export function fetchInferenceActivity(): Promise<InferenceActivity> {
   return apiFetch("/api/inference/activity");
+}
+
+/** Optional Site Gateway status from the server-side probe (URL and ops key stay on the server). */
+export function fetchSiteGateway(): Promise<SiteGatewaySnapshot> {
+  return apiFetch("/api/site-gateway");
 }
 
 /** Fleet activity log, newest first. */

@@ -538,3 +538,49 @@ test("metricsEntries wires each monitor's snapshot, provenance and success times
   const fam = parseExposition(renderPrometheusMetrics(entries)).get("sparkdash_collector_last_success_timestamp_seconds");
   assert.equal(fam.samples[0].value, 1_791_700_000);
 });
+
+// ─── Site Gateway ─────────────────────────────────────────────────────────
+function gatewaySnapshot(overrides = {}) {
+  return {
+    enabled: true, reachable: true, available: true, mode: "ops",
+    status: {
+      services: [
+        { id: "deepseek-v41", enabled: true, status: "ready" },
+        { id: "media", enabled: true, status: "degraded" },
+        { id: "qwen", enabled: true, status: "unknown" },
+        { id: "old", enabled: false, status: "disabled" },
+      ],
+      traffic: {
+        services: [
+          { service: "deepseek-v41", inflight: 2, requests: 40, status2xx: 37, status4xx: 2, status5xx: 1, rateLimited: 1, timeouts: 0, errorRate: 0.025, latencyMs: { p50: 2500, p95: 10000 } },
+          { service: "media", inflight: 0, requests: 0, status2xx: 0, status4xx: 0, status5xx: 0, rateLimited: 0, timeouts: 0, errorRate: null, latencyMs: { p50: null, p95: null } },
+        ],
+      },
+    },
+    ...overrides,
+  };
+}
+
+test("Site Gateway series use base units, leave out unknown and stay parseable", () => {
+  const text = renderPrometheusMetrics([gb10Head()], { siteGateway: gatewaySnapshot() });
+  const families = parseExposition(text);
+  assert.equal(families.get("sparkdash_sitegw_up").samples[0].value, 1);
+  const up = families.get("sparkdash_sitegw_service_up").samples;
+  assert.deepEqual(up.map((s) => [s.labels.service, s.value]), [["deepseek-v41", 1], ["media", 0]], "unknown and disabled backends are omitted");
+  assert.equal(valueOf(families, "sparkdash_sitegw_requests", { service: "deepseek-v41", class: "5xx" }), 1);
+  assert.equal(valueOf(families, "sparkdash_sitegw_requests", { service: "deepseek-v41", class: "2xx" }), 37);
+  assert.equal(valueOf(families, "sparkdash_sitegw_inflight", { service: "deepseek-v41" }), 2);
+  assert.equal(valueOf(families, "sparkdash_sitegw_latency_p95_seconds", { service: "deepseek-v41" }), 10);
+  const p95 = families.get("sparkdash_sitegw_latency_p95_seconds").samples;
+  assert.equal(p95.length, 1, "a window without requests has no latency sample");
+});
+
+test("Site Gateway: not configured exports nothing, unreachable exports only up 0, liveness only exports up", () => {
+  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateway: { enabled: false, reachable: null } }), /sitegw/);
+  assert.doesNotMatch(renderPrometheusMetrics([], { siteGateway: { enabled: true, reachable: null } }), /sitegw/, "unknown before the first check");
+  const down = parseExposition(renderPrometheusMetrics([], { siteGateway: { enabled: true, reachable: false, available: false, status: null } }));
+  assert.deepEqual([...down.keys()].filter((k) => k.includes("sitegw")), ["sparkdash_sitegw_up"]);
+  assert.equal(down.get("sparkdash_sitegw_up").samples[0].value, 0);
+  const live = parseExposition(renderPrometheusMetrics([], { siteGateway: { enabled: true, reachable: true, available: true, mode: "liveness", status: null } }));
+  assert.deepEqual([...live.keys()].filter((k) => k.includes("sitegw")), ["sparkdash_sitegw_up"]);
+});

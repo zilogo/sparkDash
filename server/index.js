@@ -52,6 +52,7 @@ import {
 } from "./collectors/QualityBench.js";
 import { showcaseManager } from "./collectors/ShowcaseManager.js";
 import { InferenceActivityStore } from "./collectors/InferenceActivity.js";
+import { SiteGatewayStore, siteGatewayAlertUnit } from "./collectors/SiteGatewayProbe.js";
 import { llmProbeHost } from "./collectors/llmHost.js";
 import { onceClose, resolveLlmHttpTarget } from "./collectors/llmTunnel.js";
 import { formatLlmBaseUrl, parseLlmTargetInput } from "../src/shared/llmTarget.js";
@@ -303,6 +304,10 @@ function consumeBenchStartQuota(req, res) {
 // ─── Spark registry ──────────────────────────────────────
 const registry = new SparkRegistry();
 const inferenceActivity = new InferenceActivityStore();
+// Optional Site Gateway monitoring (URL and ops key are server-side only). Polled on
+// its own timer so alerts and /metrics work with no dashboard open.
+const siteGateway = new SiteGatewayStore();
+if (siteGateway.enabled) setInterval(() => { siteGateway.refreshIfDue().catch(() => {}); }, 5_000).unref();
 const occupancy = createOccupancyRuntime({ listSparks: () => registry.sparks });
 
 const fleetEnergyTracker = new FleetEnergyTracker({
@@ -760,7 +765,7 @@ app.put("/api/sparks/order", (req, res) => {
 
 // ─── Global settings ──────────────────────────────────────
 app.get("/api/settings", (_req, res) => {
-  res.json({ ...getSettings(), inferenceActivityEnabled: inferenceActivity.enabled });
+  res.json({ ...getSettings(), inferenceActivityEnabled: inferenceActivity.enabled, siteGatewayEnabled: siteGateway.enabled });
 });
 
 app.put("/api/settings", (req, res) => {
@@ -777,7 +782,7 @@ app.put("/api/settings", (req, res) => {
     }
     // MQTT broker URL / prefix / enablement changed: reconnect (a no-op otherwise).
     mqttPublisher.applySettings();
-    res.json({ ...newSettings, inferenceActivityEnabled: inferenceActivity.enabled });
+    res.json({ ...newSettings, inferenceActivityEnabled: inferenceActivity.enabled, siteGatewayEnabled: siteGateway.enabled });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -787,6 +792,12 @@ app.put("/api/settings", (req, res) => {
 app.get("/api/inference/activity", async (_req, res) => {
   await inferenceActivity.refreshIfDue();
   res.set("Cache-Control", "no-store").json(inferenceActivity.snapshot());
+});
+
+// Optional Site Gateway status; the URL and the ops key can only be set on the server.
+app.get("/api/site-gateway", async (_req, res) => {
+  await siteGateway.refreshIfDue();
+  res.set("Cache-Control", "no-store").json(siteGateway.snapshot());
 });
 
 // GET /api/sparks/:id/gpu-history (GPU raw tier, newest last) and /api/sparks/:id/history (bucketed tiers).
@@ -2294,7 +2305,7 @@ app.get("/metrics", (_req, res) => {
   // res.end, not res.send: send() reorders the media type parameters; keep the
   // header exactly as the exposition format spells it.
   res.setHeader("Content-Type", PROMETHEUS_CONTENT_TYPE);
-  res.end(renderPrometheusMetrics(entries));
+  res.end(renderPrometheusMetrics(entries, { siteGateway: siteGateway.snapshot() }));
 });
 
 // ─── Static files (built frontend) ───────────────────────
@@ -2501,7 +2512,8 @@ function startBroadcast() {
     // Alerts are evaluated once per fleet snapshot, before it goes out, so the
     // payload carries the alerts this very snapshot produced. They run whether
     // or not a dashboard is open.
-    alertsRuntime.tick(sparks);
+    const gatewayUnit = siteGatewayAlertUnit(siteGateway.snapshot());
+    alertsRuntime.tick(gatewayUnit ? [...sparks, gatewayUnit] : sparks);
     // MQTT subscribers are not dashboards, so publish before the no-client skip below.
     publishMqttFleet();
     // Nobody is listening: skip serialising every unit's snapshot. A client that
