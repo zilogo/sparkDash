@@ -8,7 +8,8 @@ import { FleetAlertStrip } from "./FleetAlertStrip";
 import { FleetTokenTotals } from "./FleetTokenTotals";
 import { InferenceTrafficCard } from "./InferenceTrafficCard";
 import { FleetKpis, type KpiVisibility } from "./FleetKpis";
-import { ACTIVITY_ID, ENERGY_ID, TOKENS_ID } from "../../constants";
+import { ACTIVITY_ID, ENERGY_ID, SITE_GATEWAY_ID, TOKENS_ID } from "../../constants";
+import { SiteGatewayCard } from "./SiteGatewayCard";
 import { SparkCard } from "./SparkCard";
 import { ActivityFeed } from "./ActivityFeed";
 import { ActivityIcon, PowerOnIcon, RotateIcon } from "../ui/icons";
@@ -24,6 +25,8 @@ interface OverviewPageProps {
   showFleetEnergy?: boolean;
   /** Opt-in server capability; absent sources add no card or polling. */
   showInferenceActivity?: boolean;
+  /** Opt-in server capability (SPARKDASH_SITEGW_URL); absent adds no card or polling. */
+  showSiteGateway?: boolean;
   showFleetExceptions?: boolean;
   /** Alert notifications on: the exceptions strip lists `serverAlerts` instead of deriving its own. */
   alertsEnabled?: boolean;
@@ -49,6 +52,7 @@ export function OverviewPage({
   hideWorkers = false,
   showFleetEnergy = true,
   showInferenceActivity = false,
+  showSiteGateway = false,
   showFleetExceptions = false,
   alertsEnabled = false,
   serverAlerts = null,
@@ -345,8 +349,9 @@ export function OverviewPage({
           })}
         </div>
         <FleetKpis sparks={sparks} snapshotKey={sparks} show={kpis} />
-        {showFleetEnergy || showLlmTokenTotals || showActivityFeed || showInferenceActivity ? (
+        {showFleetEnergy || showLlmTokenTotals || showActivityFeed || showInferenceActivity || showSiteGateway ? (
         <div className="ov-side">
+          {showSiteGateway ? <SiteGatewayCard onOpenDetails={onNavigate ? () => onNavigate(SITE_GATEWAY_ID) : undefined} /> : null}
           {showInferenceActivity ? <InferenceTrafficCard /> : null}
           {showFleetEnergy ? <FleetEnergyCard nodeCount={sparks.length} nodeNames={Object.fromEntries(sparks.map((s) => [s.id, s.name]))} onOpenDetails={onNavigate ? () => onNavigate(ENERGY_ID) : undefined} /> : null}
           {showLlmTokenTotals ? <FleetTokenTotals onOpenDetails={onNavigate ? () => onNavigate(TOKENS_ID) : undefined} /> : null}

@@ -1,0 +1,139 @@
+/* Site Gateway page and Overview card. Page rules are scoped under .sg. */
+
+.sg {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.sg .sg-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.sg .sg-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.sg .sg-tile__text {
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sg .sg-section {
+  padding: 12px 14px;
+  min-width: 0;
+}
+.sg .sg-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sg .sg-scroll {
+  overflow-x: auto;
+}
+.sg .sg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.sg .sg-table th,
+.sg .sg-table td {
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+.sg .sg-table thead th {
+  color: var(--color-muted);
+  font-weight: 500;
+  font-size: 11px;
+}
+.sg .sg-table tbody th {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+.sg .sg-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+.sg .sg-empty,
+.sg .sg-foot {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.sg .sg-state {
+  padding: 14px 16px;
+}
+.sg .sg-state h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+.sg .sg-state p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.sg .sg-legend {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.sg .sg-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.sg .sg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.sg .sg-dot--status5xx {
+  background: var(--color-danger);
+}
+.sg .sg-dot--rateLimited {
+  background: var(--color-warning);
+}
+
+/* Overview card */
+.sg-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.sg-kpis > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sg-kpi__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+.sg-kpi__value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+.sg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

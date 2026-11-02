@@ -6,6 +6,8 @@ export const ENERGY_ID = "__energy__";
 export const TEMPS_ID = "__temps__";
 export const ACTIVITY_ID = "__activity__";
 export const SHOWCASE_ID = "__showcase__";
+/** Site Gateway page; also the id the server gives the gateway's alerts, so an alert click opens it. */
+export const SITE_GATEWAY_ID = "__site_gateway__";
 /** Cost compare page: fleet token usage priced as a hosted API model. */
 export const COST_ID = "__cost__";
 /** Kiosk wall display: rendered outside the dashboard shell (useAppRoute), so the app never navigates to it in place. */
@@ -20,6 +22,7 @@ const FIXED_PATHS: Record<string, string> = {
   [TEMPS_ID]: "/temps",
   [ACTIVITY_ID]: "/activity",
   [SHOWCASE_ID]: "/showcase",
+  [SITE_GATEWAY_ID]: "/site-gateway",
   [COST_ID]: "/cost",
   [KIOSK_ID]: "/kiosk",
 };

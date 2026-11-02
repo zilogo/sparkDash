@@ -18,6 +18,7 @@ The package uses ESM throughout. `server/index.js` runs directly in Node and cre
 | `server/health/`, `server/alerts/`, `server/events/` | Findings, optional notifications and bounded activity history |
 | `server/llmlaunch/`, `server/tooleval/`, `server/gpuclock/` | Model launcher jobs, tool evaluation and GPU-clock management |
 | `server/prices/` | Opt-in hosted-model price catalog and offline cache |
+| `server/collectors/SiteGatewayProbe.js` | Optional KarmaBox Site Gateway probe (`/ops/v1/status`, `/healthz` fallback), its findings, and the pseudo-unit that carries its alerts; consumed by `/api/site-gateway`, `/metrics`, the alert tick and `src/components/SiteGatewayPage/` |
 | `src/api/` | API clients and browser-facing data types |
 | `src/hooks/` | Snapshot subscription, metric history and UI hooks |
 | `src/components/` | Shell, overview, unit panels and feature pages |

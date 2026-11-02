@@ -20,6 +20,19 @@ describe("fetchInferenceActivity", () => {
   });
 });
 
+describe("fetchSiteGateway", () => {
+  afterEach(() => { localStorage.removeItem("sparkdashToken"); vi.unstubAllGlobals(); });
+  it("is an ordinary authenticated dashboard GET; the gateway key never leaves the server", async () => {
+    localStorage.setItem("sparkdashToken", "dashboard-token");
+    const payload = { enabled: false, available: false, reachable: null, mode: null, status: null, samples: [] };
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(payload));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchSiteGateway } = await loadClient();
+    expect(await fetchSiteGateway()).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledWith("/api/site-gateway", { headers: { Authorization: "Bearer dashboard-token" } });
+  });
+});
+
 describe("cancelShowcaseBeacon", () => {
   afterEach(() => {
     localStorage.removeItem("sparkdashToken");

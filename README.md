@@ -45,6 +45,7 @@ Monitored units run **Linux**, **macOS**, or **Windows** (a Windows PC with an N
 - [Glance integration](#glance-integration)
 - [Quality bench](#quality-bench)
 - [Prometheus](#prometheus)
+- [Site Gateway monitoring](#site-gateway-monitoring)
 - [Alert notifications](#alert-notifications)
 - [RoCE / RDMA monitoring](#roce--rdma-monitoring)
 - [Intel Arc GPUs](#intel-arc-gpus)
@@ -1228,6 +1229,25 @@ Each configured LLM port gets its own `LlmProbe` instance running in parallel. P
 Rates are derived from per-probe cumulative counter diffs (or SGLang sticky throughput while it moves). Multiple ports can be added or removed at runtime without restarting the monitor.
 
 Live probes use the LAN IP on remote units, and fall back to an SSH forward to the unit's loopback after two failed direct probes (the LLM panel then shows a **via SSH** chip). **Decode, prefill and quality benches** try that same HTTP target first; if it is closed they open an SSH local-forward onto the remote’s `127.0.0.1` so loopback-bound servers (ds4 `start.sh` default) can still be measured. The tunnel is torn down when the job finishes or is cancelled.
+
+---
+
+## Site Gateway monitoring
+
+Optional (off unless configured). Monitors a [KarmaBox Site Gateway](https://github.com/zilogo/KarmaBox-Site-Gateway): whether it is alive, whether each backend it fronts is ready, and what traffic it is carrying — per backend and per caller, with 5xx, 429 and latency.
+
+Configure it in the **server's environment** and restart sparkDash. Neither value is editable from the browser or returned by any API:
+
+```dotenv
+SPARKDASH_SITEGW_URL=http://100.64.0.21:8200
+SPARKDASH_SITEGW_TOKEN=<the gateway's SITE_GATEWAY_OPS_API_KEY>
+```
+
+- `SPARKDASH_SITEGW_URL` is the gateway's origin. Only an **IP literal** in loopback, private (RFC1918) or **Tailnet (`100.64.0.0/10`)** space is accepted, with no credentials, path, query or fragment and no redirects; a hostname, a public address or a `.local` name makes the setting invalid (the Overview card then reports an invalid configuration). Use the Tailnet address when sparkDash runs somewhere that cannot reach the site LAN (a Mac on another subnet, for example); note that a Tailnet showing a node offline does not always mean the node is down.
+- `SPARKDASH_SITEGW_TOKEN` is the gateway's **read-only ops key** (`Authorization: Bearer`), separate from every business and admin key; it can read aggregate status and nothing else. Without it sparkDash still works in **liveness-only** mode: it calls the unauthenticated `/healthz` and shows alive / unreachable, and says that backends and request counts are unknown. If the ops endpoint fails (older gateway, wrong key) it falls back to liveness and reports why.
+- The endpoint contract is the gateway's `docs/ops-status.md`. sparkDash reads `/ops/v1/status?window=5` at most once every 5 s (shared between viewers), with a 5 s timeout and a 256 KiB body cap, and keeps only whitelisted fields: caller names that look like keys, IPs or URLs are shown as `unknown`, and nothing else the gateway might send is kept. Counters live in the gateway's memory and reset when it restarts; sparkDash keeps its own 30-second samples (about one hour) for trend.
+- **What you see:** an Overview card (in flight, requests in the window, 5xx rate, p95, one chip per backend), a **Site Gateway** page (backends, callers, per-minute requests / 5xx / 429), and Prometheus series when Prometheus export is on: `sparkdash_sitegw_up`, `sparkdash_sitegw_service_up{service}`, `sparkdash_sitegw_requests{service,class}` (window counts, a gauge), `sparkdash_sitegw_inflight{service}`, `sparkdash_sitegw_latency_p95_seconds{service}` (histogram bucket upper bound). Unknown values are left out, not exported as 0.
+- **Alerts** (Settings → Alerts, when alerts are on): the gateway appears as the unit "Site Gateway". *Unit offline* fires when it stops answering; `sitegw-degraded` when an enabled backend reports degraded; `sitegw-errors` when a backend's 5xx rate is above 20 % over at least 10 requests in the window; `sitegw-ratelimit` when at least 5 requests were answered 429 in the window. The last three need the ops key. Clicking one of these alerts opens the Site Gateway page.
 
 ---
 

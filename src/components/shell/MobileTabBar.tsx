@@ -4,9 +4,9 @@ import { createPortal } from "react-dom";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useInertBackground } from "../../hooks/useInertBackground";
 import type { SparkSnapshot } from "../../api/types";
-import { ACTIVITY_ID, COST_ID, ENERGY_ID, OVERVIEW_ID, SHOWCASE_ID, TEMPS_ID, TOKENS_ID, benchId, benchTypeOf, isPageId } from "../../constants";
+import { ACTIVITY_ID, COST_ID, ENERGY_ID, OVERVIEW_ID, SHOWCASE_ID, SITE_GATEWAY_ID, TEMPS_ID, TOKENS_ID, benchId, benchTypeOf, isPageId } from "../../constants";
 import { BENCH_TYPES } from "../bench/benchCatalog";
-import { BoltIcon, ChartIcon, CoinsIcon, GearIcon, GridIcon, ListIcon, PlusIcon, ServerIcon, TerminalIcon, ThermometerIcon, TokensIcon } from "../ui/icons";
+import { BoltIcon, ChartIcon, CoinsIcon, GearIcon, GlobeIcon, GridIcon, ListIcon, PlusIcon, ServerIcon, TerminalIcon, ThermometerIcon, TokensIcon } from "../ui/icons";
 import { isThrottling, railSubLabel } from "./sparkSummary";
 import { ShutdownAll } from "../ShutdownAll";
 
@@ -19,10 +19,12 @@ interface MobileTabBarProps {
   onSelect: (id: string) => void;
   onAdd: () => void;
   onOpenSettings: () => void;
+  /** Site Gateway monitoring is configured on the server. */
+  showSiteGateway?: boolean;
 }
 
 /** Floating bottom tab bar for narrow screens (the fleet rail is hidden there). */
-export function MobileTabBar({ sparks, activeId, onSelect, onAdd, onOpenSettings }: MobileTabBarProps) {
+export function MobileTabBar({ sparks, activeId, onSelect, onAdd, onOpenSettings, showSiteGateway = false }: MobileTabBarProps) {
   const [sheetKind, setSheetKind] = useState<"sparks" | "stats" | null>(null);
   const sheet = sheetKind != null;
   // Closing plays a slide-down first; the sheet unmounts when it has finished.
@@ -60,7 +62,7 @@ export function MobileTabBar({ sparks, activeId, onSelect, onAdd, onOpenSettings
     return () => document.removeEventListener("keydown", onKey);
   }, [sheet]);
   // Which tab the sliding highlight sits under (-1 hides it, e.g. while on a Settings dialog).
-  const statsActive = activeId === TOKENS_ID || activeId === COST_ID || activeId === ENERGY_ID || activeId === TEMPS_ID || activeId === ACTIVITY_ID;
+  const statsActive = activeId === TOKENS_ID || activeId === COST_ID || activeId === ENERGY_ID || activeId === TEMPS_ID || activeId === ACTIVITY_ID || activeId === SITE_GATEWAY_ID;
   const tabIndex =
     sheetKind === "sparks" ? 1 : sheetKind === "stats" ? 2 : activeId === OVERVIEW_ID ? 0 : onSpark ? 1 : statsActive ? 2 : -1;
   const pageButton = (id: string, label: string, icon: ReactNode, compact = false) => (
@@ -120,6 +122,7 @@ export function MobileTabBar({ sparks, activeId, onSelect, onAdd, onOpenSettings
                       [ENERGY_ID, "Fleet energy", <BoltIcon key="e" className="h-4 w-4" />],
                       [TEMPS_ID, "Temps", <ThermometerIcon key="tp" className="h-4 w-4" />],
                       [ACTIVITY_ID, "Activity", <ListIcon key="a" className="h-4 w-4" />],
+                      ...(showSiteGateway ? ([[SITE_GATEWAY_ID, "Site Gateway", <GlobeIcon key="g" className="h-4 w-4" />]] as const) : []),
                     ] as const).map(([id, label, icon]) => pageButton(id, label, icon))
                   ) : (
                     <>

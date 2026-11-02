@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ENERGY_ID, KIOSK_ID, OVERVIEW_ID, TEMPS_ID, benchId, benchTypeOf, idToPath, initialActiveId, isPageId, isStaleSparkId, pathToId } from "./constants";
+import { ENERGY_ID, KIOSK_ID, OVERVIEW_ID, SITE_GATEWAY_ID, TEMPS_ID, benchId, benchTypeOf, idToPath, initialActiveId, isPageId, isStaleSparkId, pathToId } from "./constants";
 
 describe("route helpers", () => {
   it("round-trips ids and paths", () => {
@@ -13,6 +13,11 @@ describe("route helpers", () => {
     expect(idToPath(KIOSK_ID)).toBe("/kiosk");
     expect(pathToId("/kiosk/")).toBe(KIOSK_ID);
     expect(pathToId("/nothing-here")).toBe(OVERVIEW_ID);
+    expect(idToPath(SITE_GATEWAY_ID)).toBe("/site-gateway");
+    expect(pathToId("/site-gateway")).toBe(SITE_GATEWAY_ID);
+    expect(isPageId(SITE_GATEWAY_ID)).toBe(true);
+    // The server gives the gateway's alerts this id (SITE_GATEWAY_UNIT_ID in SiteGatewayProbe.js).
+    expect(SITE_GATEWAY_ID).toBe("__site_gateway__");
   });
 
   describe("initialActiveId", () => {
