@@ -470,7 +470,7 @@ scrape_configs:
       credentials_file: /etc/prometheus/sparkdash.token
 ```
 
-The exporter reads the snapshot sparkDash already holds, so scraping adds no SSH or nvidia-smi calls; values are as fresh as the poll interval. Names follow node_exporter / DCGM-exporter practice: base units (bytes, seconds, °C, watts, 0–1 ratios), `_total` only on counters. Every series carries `unit` (the unit id), `unit_name`, `kind` (`spark` / `host`) and `role` (`head` / `worker` / `standalone`). Memory and disk sizes are collected in MiB and converted to bytes.
+The exporter reads the snapshot sparkDash already holds, so scraping adds no SSH or nvidia-smi calls; values are as fresh as the poll interval. Names follow node_exporter / DCGM-exporter practice: base units (bytes, seconds, °C, watts, 0–1 ratios), `_total` only on counters. Every series carries `unit` (the unit id), `unit_name`, `kind` (`spark` / `host`) and `role` (`head` / `worker` / `standalone`); a unit that belongs to a [group](#unit-groups) also carries `group` (the label is left out entirely for an ungrouped unit, never emitted empty). Site Gateway series have no `group`. Memory and disk sizes are collected in MiB and converted to bytes.
 
 | Family | Type | Extra labels | Notes |
 |--------|------|--------------|-------|
@@ -1080,6 +1080,16 @@ For compatibility, `SSH_CONTROL_PERSIST` is accepted as a seconds-based fallback
    - **LLM host** (optional, `llmHost` in the unit's config): when the model API listens on one specific address of a multi-interface Spark, pin it here; probes and benchmarks then use it instead of the LAN IP (SSH keeps using the SSH host). An unreachable `llmHost` is never tunnelled to the SSH host's loopback.
 4. **Test** shows pass/fail/skipped for host collectors/SSH and each enabled service (LLM, ComfyUI, Hermes Agent, Tailnet). Every enabled capability must pass; disable an unavailable optional service before saving if it should not be monitored.
 5. Save — a tab appears and metrics start streaming.
+
+### Unit groups
+
+Both the add and edit dialogs have an optional **Group** field (`group` in `config/sparks.json`, at most 64 characters). A unit belongs to at most one group; empty means ungrouped. The field suggests the groups already in use, and typing a new name creates one. Only units are grouped, not Site Gateways.
+
+- **Sidebar:** with at least one group, units appear under collapsible group headers (collapse state is remembered in the browser; the active unit stays visible), and ungrouped units come last under an *Ungrouped* heading. With no groups the sidebar is unchanged.
+- **Overview:** with at least one group, each group is a section with a summary row: units online/total, GPU memory used/total over the online units that report it, and the number of LLM endpoints serving. A value that cannot be known (for example every unit in the group is offline) shows "—", never 0. With no groups the Overview is unchanged.
+- **API:** `POST /api/sparks` and `PATCH /api/sparks/:id` accept `group`. A PATCH that omits it keeps the current group; `null` or `""` clears it.
+- **Prometheus:** per-unit series gain a `group` label only for grouped units.
+- Alerts are not grouped.
 
 ### When an engine moves to another node
 

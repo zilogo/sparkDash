@@ -20,6 +20,8 @@ The package uses ESM throughout. `server/index.js` runs directly in Node and cre
 | `server/prices/` | Opt-in hosted-model price catalog and offline cache |
 | `server/sitegateway/SiteGatewayRegistry.js` | Site Gateways configured in the UI: `config/site-gateways.json` (no secrets), write-only ops tokens in the secrets store (`siteGatewayTokens`), one hot-swappable probe per gateway, the read-only `env` seed from `SPARKDASH_SITEGW_*`; consumed by `/api/site-gateways*`, `/metrics`, the alert tick and `src/components/SiteGatewayPage/` |
 | `server/collectors/SiteGatewayProbe.js` | One KarmaBox Site Gateway probe (`/ops/v1/status`, `/healthz` fallback), its findings, headline numbers, the one-shot "Test connection" probe, and the `sitegw:<id>` pseudo-unit that carries its alerts |
+| `server/sparks/groupField.js` | Optional unit `group` name: normalization (trim, control characters, 64 chars) and request-body validation; shared by the registry, `/api/sparks` and Prometheus labels |
+| `src/shared/sparkGroups.ts` | Pure grouping helpers: group of a unit, group list, split into groups/ungrouped, per-group summary (unknown stays `null`); used by the sidebar (`components/shell/railGroups.tsx`) and Overview (`OverviewPage/GroupSection.tsx`) |
 | `src/api/` | API clients and browser-facing data types |
 | `src/hooks/` | Snapshot subscription, metric history and UI hooks |
 | `src/components/` | Shell, overview, unit panels and feature pages |
