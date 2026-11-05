@@ -393,6 +393,8 @@ function addUnit(samples, entry) {
     kind: snapshot.kind || "spark",
     role: snapshot.role || (snapshot.workerNode ? "worker" : "standalone"),
   };
+  // Only grouped units carry the label; an empty value is never emitted.
+  if (typeof snapshot.group === "string" && snapshot.group) base.group = snapshot.group;
   samples.add("sparkdash_up", base, snapshot.online === true ? 1 : 0);
   if (snapshot.online !== true) return;
 

@@ -601,3 +601,15 @@ test("Site Gateway series carry the gateway label so several gateways stay apart
     assert.ok(families.get(name).samples.every((s) => s.labels.gateway), `${name} always has a gateway label`);
   }
 });
+
+test("the group label appears on every series of a grouped unit and never empty", () => {
+  const grouped = { ...gb10Head(), group: "DeepSeek" };
+  const families = parseExposition(renderPrometheusMetrics([grouped, multiGpuHost(), { ...offlineUnit(), group: "" }]));
+  for (const [, fam] of families) {
+    for (const sample of fam.samples) {
+      if (sample.labels.unit === "spark-1") assert.equal(sample.labels.group, "DeepSeek");
+      else assert.ok(!("group" in sample.labels), "ungrouped units carry no group label");
+    }
+  }
+  assert.ok(samplesOf(families, "sparkdash_gpu_memory_used_bytes", { unit: "spark-1", group: "DeepSeek" }).length > 0);
+});

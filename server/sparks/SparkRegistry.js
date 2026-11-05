@@ -4,6 +4,7 @@ import { loadSecrets, saveSecrets } from "../secretsStore.js";
 import { atomicWrite, quarantineCorrupt } from "../util/atomicWrite.js";
 import { isValidSparkId, normalizeSshPort } from "../validate.js";
 import { llmProbeHost } from "../collectors/llmHost.js";
+import { normalizeGroup } from "./groupField.js";
 
 /**
  * SparkRegistry — loads, persists, and emits change events for the Spark list.
@@ -618,6 +619,8 @@ export class SparkRegistry {
        */
       platform:
         config.platform === "darwin" ? "darwin" : config.platform === "windows" ? "windows" : "linux",
+      /** Optional group name (a unit belongs to at most one); null = ungrouped. */
+      group: normalizeGroup(config.group),
       lanIp: config.lanIp || "",
       /** Optional pinned HTTP target for LLM probes/actions; SSH still uses ssh.host. */
       llmHost:

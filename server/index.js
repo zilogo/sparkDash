@@ -23,6 +23,7 @@ import {
   validateDecodeContextBudget,
   validatePrefillBudget,
 } from "./validate.js";
+import { validateGroupField } from "./sparks/groupField.js";
 import { authStatus, authorizeUpgrade, createAuthMiddleware, createHostGuardMiddleware, isLoopbackBind, setTailscaleName } from "./auth.js";
 import { inspectHealth } from "./health.js";
 import { getSettings, updateSettings, loadSettings } from "./settings.js";
@@ -646,7 +647,7 @@ app.post("/api/sparks/test", async (req, res) => {
 
 app.post("/api/sparks", (req, res) => {
   try {
-    const validationError = validateSparkTarget(req.body || {});
+    const validationError = validateSparkTarget(req.body || {}) || validateGroupField(req.body);
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
@@ -669,6 +670,8 @@ app.post("/api/sparks", (req, res) => {
 app.patch("/api/sparks/:id", (req, res) => {
   try {
     const body = req.body || {};
+    const groupError = validateGroupField(body);
+    if (groupError) return res.status(400).json({ error: groupError });
     // Only validate host fields if they are being updated
     if (
       body.lanIp != null ||
