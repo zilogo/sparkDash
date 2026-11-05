@@ -1085,7 +1085,7 @@ For compatibility, `SSH_CONTROL_PERSIST` is accepted as a seconds-based fallback
 
 Both the add and edit dialogs have an optional **Group** field (`group` in `config/sparks.json`, at most 64 characters). A unit belongs to at most one group; empty means ungrouped. The field suggests the groups already in use, and typing a new name creates one. Only units are grouped, not Site Gateways.
 
-- **Sidebar:** with at least one group, units appear under collapsible group headers (collapse state is remembered in the browser; the active unit stays visible), and ungrouped units come last under an *Ungrouped* heading. With no groups the sidebar is unchanged.
+- **Sidebar:** with at least one group, units appear under collapsible group headers (collapse state is remembered in the browser; a collapsed group hides all its units, including the active one), and ungrouped units come last under an *Ungrouped* heading. With no groups the sidebar is unchanged.
 - **Overview:** with at least one group, each group is a section with a summary row: units online/total, GPU memory used/total over the online units that report it, and the number of LLM endpoints serving. A value that cannot be known (for example every unit in the group is offline) shows "—", never 0. With no groups the Overview is unchanged.
 - **API:** `POST /api/sparks` and `PATCH /api/sparks/:id` accept `group`. A PATCH that omits it keeps the current group; `null` or `""` clears it.
 - **Prometheus:** per-unit series gain a `group` label only for grouped units.

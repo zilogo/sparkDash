@@ -225,7 +225,7 @@ export function AppSidebar({
           const collapsed = collapsedGroups.isCollapsed(g.name);
           return (
             <RailGroup key={g.name} name={g.name} count={g.sparks.length} collapsed={collapsed} onToggle={() => collapsedGroups.toggle(g.name)}>
-              {(collapsed ? g.sparks.filter((s) => s.id === activeId) : g.sparks).map(renderRow)}
+              {(collapsed ? [] : g.sparks).map(renderRow)}
             </RailGroup>
           );
         })}

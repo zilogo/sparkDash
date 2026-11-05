@@ -143,14 +143,14 @@ describe("AppSidebar groups", () => {
     expect(names).toEqual(["Spark b", "Spark c", "Spark a"]);
   });
 
-  it("collapses a group, keeps the active unit visible, and remembers the state", () => {
+  it("collapses a group, hides every unit including the active one, and remembers the state", () => {
     const sparks = [grouped("a", "G"), grouped("b", "G")];
     const first = render(<AppSidebar sparks={sparks} {...props} activeId="b" />);
     const head = first.container.querySelector<HTMLButtonElement>("button.rail-group__head")!;
     expect(head.getAttribute("aria-expanded")).toBe("true");
     act(() => head.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     expect(head.getAttribute("aria-expanded")).toBe("false");
-    expect([...first.container.querySelectorAll('nav[aria-label="Sparks"] .rail-item__name')].map((n) => n.textContent)).toEqual(["Spark b"]);
+    expect([...first.container.querySelectorAll('nav[aria-label="Sparks"] .rail-item__name')].map((n) => n.textContent)).toEqual([]);
     expect(localStorage.getItem("sparkdash.sidebar.collapsedGroups")).toBe('["G"]');
     const second = render(<AppSidebar sparks={sparks} {...props} />);
     expect(second.container.querySelector("button.rail-group__head")?.getAttribute("aria-expanded")).toBe("false");

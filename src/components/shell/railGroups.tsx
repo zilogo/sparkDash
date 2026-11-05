@@ -34,7 +34,7 @@ interface RailGroupProps {
   count: number;
   collapsed: boolean;
   onToggle: () => void;
-  /** The rows to show; the caller passes none (or only the active unit) while collapsed. */
+  /** The rows to show; the caller passes none while collapsed. */
   children: ReactNode;
 }
 
