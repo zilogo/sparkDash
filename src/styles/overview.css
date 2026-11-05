@@ -908,3 +908,50 @@
 .ov .ov-help:focus-visible {
   opacity: 1;
 }
+
+/* Unit groups on the Overview */
+.ov .ov-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.ov .ov-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.ov .ov-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+.ov .ov-group__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+.ov .ov-group__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.ov .ov-group__summary > div {
+  display: flex;
+  gap: 6px;
+}
+.ov .ov-group__summary dt {
+  font-weight: 500;
+}
+.ov .ov-group__summary dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}

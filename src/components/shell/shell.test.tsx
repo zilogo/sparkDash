@@ -122,6 +122,42 @@ describe("AppSidebar", () => {
   });
 });
 
+describe("AppSidebar groups", () => {
+  const grouped = (id: string, group: string | null) => ({ ...makeSpark(id), group });
+  const props = { activeId: null, onSelect: () => {}, onAdd: () => {}, onOpenSettings: () => {}, onOpenSearch: () => {}, connected: true } as const;
+
+  beforeEach(() => localStorage.clear());
+
+  it("looks the same as before when no unit has a group", () => {
+    const { container } = render(<AppSidebar sparks={[makeSpark("a"), makeSpark("b")]} {...props} />);
+    expect(container.querySelector(".rail-group")).toBeNull();
+    expect(container.querySelectorAll('nav[aria-label="Sparks"] > .rail-item')).toHaveLength(2);
+  });
+
+  it("shows group headers with ungrouped units last under a neutral heading", () => {
+    const sparks = [grouped("a", null), grouped("b", "DeepSeek"), grouped("c", "Qwen")];
+    const { container } = render(<AppSidebar sparks={sparks} {...props} />);
+    const heads = [...container.querySelectorAll(".rail-group__head")].map((h) => h.textContent);
+    expect(heads).toEqual(["DeepSeek1", "Qwen1", "Ungrouped"]);
+    const names = [...container.querySelectorAll('nav[aria-label="Sparks"] .rail-item__name')].map((n) => n.textContent);
+    expect(names).toEqual(["Spark b", "Spark c", "Spark a"]);
+  });
+
+  it("collapses a group, keeps the active unit visible, and remembers the state", () => {
+    const sparks = [grouped("a", "G"), grouped("b", "G")];
+    const first = render(<AppSidebar sparks={sparks} {...props} activeId="b" />);
+    const head = first.container.querySelector<HTMLButtonElement>("button.rail-group__head")!;
+    expect(head.getAttribute("aria-expanded")).toBe("true");
+    act(() => head.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(head.getAttribute("aria-expanded")).toBe("false");
+    expect([...first.container.querySelectorAll('nav[aria-label="Sparks"] .rail-item__name')].map((n) => n.textContent)).toEqual(["Spark b"]);
+    expect(localStorage.getItem("sparkdash.sidebar.collapsedGroups")).toBe('["G"]');
+    const second = render(<AppSidebar sparks={sparks} {...props} />);
+    expect(second.container.querySelector("button.rail-group__head")?.getAttribute("aria-expanded")).toBe("false");
+    expect(second.container.querySelectorAll('nav[aria-label="Sparks"] .rail-item__name')).toHaveLength(0);
+  });
+});
+
 describe("keyboard access", () => {
   it("the rail's keyboard drag does not start on Enter or Space", () => {
     expect(RAIL_KEYBOARD_CODES.start).not.toContain("Enter");

@@ -1,5 +1,5 @@
 import { BenchIcon } from "../bench/BenchIcon";
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -25,6 +25,8 @@ import { BoltIcon, ChevronDownIcon, CoinsIcon, ExpandIcon, GearIcon, GithubIcon,
 import { OpenAccessChip } from "../OpenAccessChip";
 import { ThemeSwitch } from "../ThemeSwitch";
 import { isThrottling, railSubLabel } from "./sparkSummary";
+import { groupSparks } from "../../shared/sparkGroups";
+import { RailGroup, RailUngroupedHeading, useCollapsedGroups } from "./railGroups";
 
 interface AppSidebarProps {
   sparks: SparkSnapshot[];
@@ -207,6 +209,35 @@ export function AppSidebar({
 
   const byId = useMemo(() => new Map(sparks.map((s) => [s.id, s])), [sparks]);
   const ordered = items.map((id) => byId.get(id)).filter(Boolean) as SparkSnapshot[];
+  const grouped = useMemo(() => groupSparks(ordered), [ordered]);
+  const hasGroups = grouped.groups.length > 0;
+  const collapsedGroups = useCollapsedGroups();
+  // Drag order follows what is on screen: groups first, ungrouped last. With no groups it is the plain list.
+  const displayItems = hasGroups
+    ? [...grouped.groups.flatMap((g) => g.sparks), ...grouped.ungrouped].map((s) => s.id)
+    : items;
+  const renderSections = (renderRow: (spark: SparkSnapshot) => ReactNode, list: SparkSnapshot[]): ReactNode => {
+    if (!hasGroups) return list.map(renderRow);
+    const regrouped = groupSparks(list);
+    return (
+      <>
+        {regrouped.groups.map((g) => {
+          const collapsed = collapsedGroups.isCollapsed(g.name);
+          return (
+            <RailGroup key={g.name} name={g.name} count={g.sparks.length} collapsed={collapsed} onToggle={() => collapsedGroups.toggle(g.name)}>
+              {(collapsed ? g.sparks.filter((s) => s.id === activeId) : g.sparks).map(renderRow)}
+            </RailGroup>
+          );
+        })}
+        {regrouped.ungrouped.length > 0 ? (
+          <div className="rail-group">
+            <RailUngroupedHeading />
+            {regrouped.ungrouped.map(renderRow)}
+          </div>
+        ) : null}
+      </>
+    );
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates, keyboardCodes: RAIL_KEYBOARD_CODES })
@@ -218,10 +249,10 @@ export function AppSidebar({
     setDragging(false);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const from = items.indexOf(String(active.id));
-    const to = items.indexOf(String(over.id));
+    const from = displayItems.indexOf(String(active.id));
+    const to = displayItems.indexOf(String(over.id));
     if (from < 0 || to < 0) return;
-    const next = arrayMove(items, from, to);
+    const next = arrayMove(displayItems, from, to);
     setItems(next);
     onReorder?.(next);
   };
@@ -281,17 +312,17 @@ export function AppSidebar({
               setDragging(false);
             }}
           >
-            <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            <SortableContext items={displayItems} strategy={verticalListSortingStrategy}>
               <nav className="rail-list" aria-label="Sparks">
-                {ordered.map((s) => (
+                {renderSections((s) => (
                   <RailSpark key={s.id} spark={s} isActive={activeId === s.id} onSelect={onSelect} />
-                ))}
+                ), ordered)}
               </nav>
             </SortableContext>
           </DndContext>
         ) : (
           <nav className="rail-list" aria-label="Sparks">
-            {sparks.map((s) => (
+            {renderSections((s) => (
               <div key={s.id} className={`rail-item ${activeId === s.id ? "is-active" : ""}`}>
                 <a
                   href={idToPath(s.id)}
@@ -304,7 +335,7 @@ export function AppSidebar({
                 </a>
                 <span className="rail-item__sub">{sidebarSubLabel(s)}</span>
               </div>
-            ))}
+            ), sparks)}
           </nav>
         )}
         {sparks.length === 0 ? (

@@ -17,6 +17,7 @@ import { InfoIcon } from "./ui/icons";
 import { TestResultList } from "./TestResultList";
 import { GpuClockSection } from "./GpuClockSection";
 import { XIcon } from "./ui/icons";
+import { GroupField } from "./GroupField";
 import "../styles/dialogs.css";
 
 interface EditSparkDialogProps {
@@ -25,6 +26,8 @@ interface EditSparkDialogProps {
   onClose: () => void;
   onSaved: () => void;
   onDeleted?: (id: string) => void;
+  /** Group names already in use, offered as suggestions. */
+  existingGroups?: readonly string[];
 }
 
 function useEscape(onClose: () => void) {
@@ -43,6 +46,7 @@ export function EditSparkDialog({
   onClose,
   onSaved,
   onDeleted,
+  existingGroups = [],
 }: EditSparkDialogProps) {
   const [config, setConfig] = useState<SparkConfig | null>(null);
   /** Snapshot of the Spark config as last fetched from the server. Used to
@@ -240,6 +244,7 @@ export function EditSparkDialog({
         name: config.name,
         kind: config.kind ?? "spark",
         platform: config.platform ?? "linux",
+        group: config.group?.trim() || null,
         lanIp: config.lanIp,
         cx7Ip: config.cx7Ip,
         macAddress: config.macAddress || null,
@@ -339,6 +344,14 @@ export function EditSparkDialog({
                   onChange={(e) => update({ name: e.target.value })}
                 />
               </div>
+
+              <GroupField
+                id="edit-spark-group"
+                labelClassName="field-label"
+                value={config.group}
+                groups={existingGroups}
+                onChange={(group) => update({ group })}
+              />
 
               <div>
                 <label className="field-label">

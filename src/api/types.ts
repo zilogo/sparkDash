@@ -9,6 +9,8 @@ export interface SparkConfig {
    *   Real hardware is auto-detected once online.
    */
   kind?: "spark" | "host";
+  /** Optional group the unit belongs to (at most one). Absent, null or empty = ungrouped. */
+  group?: string | null;
   /**
    * Optional OS platform override for SSH-collected units. "linux" (default)
    * uses /proc + vendor GPU tooling, "darwin" macOS hosts, "windows" Windows hosts
@@ -716,6 +718,8 @@ export interface SparkSnapshot {
   offlineReason?: string | null;
   /** Unit type: spark (DGX Spark) or host (dedicated GPU Linux box). */
   kind?: "spark" | "host";
+  /** Group the unit belongs to; null/absent when ungrouped. */
+  group?: string | null;
   /** OS of an SSH-collected unit; Windows units have no model launchers or CPU temperature. */
   platform?: "linux" | "darwin" | "windows";
   online: boolean;

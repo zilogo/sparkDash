@@ -7,6 +7,7 @@ import { useBrowserAlerts } from "./hooks/useBrowserAlerts";
 import { useAppRoute, useRoute } from "./hooks/useRoute";
 import { useSmoothWheel } from "./hooks/useSmoothWheel";
 import { fetchSparks, reorderSparks, fetchSettings, fetchHealth } from "./api/client";
+import { listGroups } from "./shared/sparkGroups";
 import { AppSidebar } from "./components/shell/AppSidebar";
 import { MobileTabBar } from "./components/shell/MobileTabBar";
 import { InstallPrompt } from "./components/shell/InstallPrompt";
@@ -112,6 +113,7 @@ function placeholderSnapshot(
     comfyPort?: number;
     tailscaleMonitoring?: boolean;
     kind?: "spark" | "host";
+    group?: string | null;
   }
 ): SparkSnapshot {
   const role =
@@ -127,6 +129,7 @@ function placeholderSnapshot(
     id,
     name,
     kind: roleFields?.kind ?? "spark",
+    group: roleFields?.group ?? null,
     online: false,
     uptime: null,
     disabledDevices,
@@ -293,6 +296,7 @@ function DashboardApp() {
         .map((s) => s.id)
     );
   }, [displaySparks, hideWorkers, activeId]);
+  const existingGroups = useMemo(() => listGroups(displaySparks), [displaySparks]);
   const tabSparks = useMemo(
     () => (hideWorkers ? displaySparks.filter((s) => !hiddenWorkerIds.has(s.id)) : displaySparks),
     [displaySparks, hideWorkers, hiddenWorkerIds]
@@ -386,6 +390,7 @@ function DashboardApp() {
               llmPorts: c.llmPorts ?? existing.llmPorts,
               llmPort: c.llmPorts?.[0] ?? c.llmPort ?? existing.llmPort,
               kind: c.kind ?? existing.kind,
+              group: c.group !== undefined ? c.group : existing.group,
             };
           }
           return placeholderSnapshot(
@@ -404,6 +409,7 @@ function DashboardApp() {
               comfyPort: c.comfyPort,
               tailscaleMonitoring: c.tailscaleMonitoring,
               kind: c.kind,
+              group: c.group,
             }
           );
         })
@@ -676,8 +682,10 @@ function DashboardApp() {
           void refreshFromApi();
         }}
         defaultLlmPort={settings?.defaultLlmPort ?? 8888}
+        existingGroups={existingGroups}
       />
       <EditSparkDialog
+        existingGroups={existingGroups}
         open={editId != null}
         sparkId={editId}
         onClose={() => setEditId(null)}

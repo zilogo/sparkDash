@@ -11,6 +11,8 @@ import { FleetKpis, type KpiVisibility } from "./FleetKpis";
 import { ACTIVITY_ID, ENERGY_ID, SITE_GATEWAY_ID, TOKENS_ID, siteGatewayDetailId } from "../../constants";
 import { SiteGatewayCard } from "./SiteGatewayCard";
 import { SparkCard } from "./SparkCard";
+import { GroupSection } from "./GroupSection";
+import { groupSparks } from "../../shared/sparkGroups";
 import { ActivityFeed } from "./ActivityFeed";
 import { ActivityIcon, PowerOnIcon, RotateIcon } from "../ui/icons";
 import { formatMb } from "../../shared/formatBytes";
@@ -96,6 +98,21 @@ export function OverviewPage({
     }
     return byId;
   }, [sparks, showVramBreakdown]);
+  const grouped = useMemo(() => groupSparks(withoutWorkers), [withoutWorkers]);
+  const visibleGrouped = useMemo(() => groupSparks(visibleSparks), [visibleSparks]);
+  const renderCard = (spark: SparkSnapshot) => {
+    const ctx = cardContext.get(spark.id);
+    return (
+      <SparkCard
+        key={spark.id}
+        spark={spark}
+        headSpark={ctx?.head ?? null}
+        vramContext={ctx?.vram ?? null}
+        temperatureUnit={temperatureUnit}
+        onSelect={onSelectSpark}
+      />
+    );
+  };
   const hiddenWorkerCount = hideWorkers ? sparks.filter(isWorkerSpark).length : 0;
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchMsg, setBatchMsg] = useState<{ text: string; tone: "ok" | "err" } | null>(null);
@@ -330,24 +347,29 @@ export function OverviewPage({
       ) : null}
 
       <div className="ov-grid">
+        {grouped.groups.length > 0 ? (
+          <div className="ov-groups">
+            {visibleSparks.length === 0 && (
+              <p className="panel ov-empty">No units match the current search and status filters.</p>
+            )}
+            {[...visibleGrouped.groups, { name: null, sparks: visibleGrouped.ungrouped }]
+              .filter((bucket) => bucket.sparks.length > 0)
+              .map((bucket) => (
+                <GroupSection key={bucket.name ?? "\u0000ungrouped"} name={bucket.name} members={bucket.name == null ? grouped.ungrouped : grouped.groups.find((g) => g.name === bucket.name)?.sparks ?? []}>
+                  <div className="ov-sparks" data-count={bucket.sparks.length}>
+                    {bucket.sparks.map(renderCard)}
+                  </div>
+                </GroupSection>
+              ))}
+          </div>
+        ) : (
         <div className="ov-sparks" data-count={visibleSparks.length}>
           {visibleSparks.length === 0 && (
             <p className="panel ov-empty">No units match the current search and status filters.</p>
           )}
-          {visibleSparks.map((spark) => {
-            const ctx = cardContext.get(spark.id);
-            return (
-              <SparkCard
-                key={spark.id}
-                spark={spark}
-                headSpark={ctx?.head ?? null}
-                vramContext={ctx?.vram ?? null}
-                temperatureUnit={temperatureUnit}
-                onSelect={onSelectSpark}
-              />
-            );
-          })}
+          {visibleSparks.map(renderCard)}
         </div>
+        )}
         <FleetKpis sparks={sparks} snapshotKey={sparks} show={kpis} />
         {showFleetEnergy || showLlmTokenTotals || showActivityFeed || showInferenceActivity || showSiteGateway ? (
         <div className="ov-side">

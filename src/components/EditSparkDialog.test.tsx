@@ -79,3 +79,48 @@ describe("EditSparkDialog SSH port", () => {
     );
   });
 });
+
+describe("EditSparkDialog group", () => {
+  beforeEach(() => {
+    vi.stubGlobal("WebSocket", MemoryWebSocket);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { protocol: "http:", host: "localhost:5555" },
+    });
+    vi.mocked(updateSpark).mockResolvedValue({ success: true, spark });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const save = async () => {
+    const button = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Save");
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  };
+  const type = (el: HTMLInputElement, value: string) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(el, value);
+    act(() => el.dispatchEvent(new Event("input", { bubbles: true })));
+  };
+
+  it("offers existing groups, shows the saved one and saves a changed one", async () => {
+    vi.mocked(fetchSparks).mockResolvedValue({ sparks: [{ ...spark, group: "DeepSeek" }] });
+    render(<EditSparkDialog open sparkId="lab" onClose={() => {}} onSaved={() => {}} existingGroups={["DeepSeek", "Qwen"]} />);
+    await flush();
+    const input = document.getElementById("edit-spark-group") as HTMLInputElement;
+    expect(input.value).toBe("DeepSeek");
+    const options = [...document.querySelectorAll(`datalist#${CSS.escape(input.getAttribute("list") ?? "")} option`)].map((o) => o.getAttribute("value"));
+    expect(options).toEqual(["DeepSeek", "Qwen"]);
+    type(input, " Brand new ");
+    await save();
+    expect(updateSpark).toHaveBeenLastCalledWith("lab", expect.objectContaining({ group: "Brand new" }));
+  });
+
+  it("clears the group with an explicit null", async () => {
+    vi.mocked(fetchSparks).mockResolvedValue({ sparks: [{ ...spark, group: "DeepSeek" }] });
+    render(<EditSparkDialog open sparkId="lab" onClose={() => {}} onSaved={() => {}} />);
+    await flush();
+    type(document.getElementById("edit-spark-group") as HTMLInputElement, "");
+    await save();
+    expect(updateSpark).toHaveBeenLastCalledWith("lab", expect.objectContaining({ group: null }));
+  });
+});

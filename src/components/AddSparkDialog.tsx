@@ -19,6 +19,7 @@ import { addDeviceLabel, UNIT_TYPE_OPTIONS, unitTypeOf, unitTypePatch, type Unit
 import { TestResultList } from "./TestResultList";
 import { resolveSparkRole } from "../api/sparkRole";
 import type { SparkRole } from "../api/types";
+import { GroupField } from "./GroupField";
 import "../styles/dialogs.css";
 
 interface AddSparkDialogProps {
@@ -26,6 +27,8 @@ interface AddSparkDialogProps {
   onClose: () => void;
   onAdded: () => void;
   defaultLlmPort?: number;
+  /** Group names already in use, offered as suggestions. */
+  existingGroups?: readonly string[];
 }
 
 function useEscape(onClose: () => void) {
@@ -88,7 +91,7 @@ const SERVER_PRESETS = [
   { name: "TensorFold", port: 8888 },
 ] as const;
 
-export function AddSparkDialog({ open, onClose, onAdded, defaultLlmPort = 8888 }: AddSparkDialogProps) {
+export function AddSparkDialog({ open, onClose, onAdded, defaultLlmPort = 8888, existingGroups = [] }: AddSparkDialogProps) {
   const [config, setConfig] = useState(defaultConfig);
   const [step, setStep] = useState<AddStep>(0);
   const [portsText, setPortsText] = useState(String(defaultLlmPort));
@@ -284,6 +287,13 @@ export function AddSparkDialog({ open, onClose, onAdded, defaultLlmPort = 8888 }
                   </p>
                 )}
               </div>
+
+              <GroupField
+                id="add-spark-group"
+                value={config.group}
+                groups={existingGroups}
+                onChange={(group) => update({ group })}
+              />
 
               {config.kind !== "host" && (
                 <div className="field">

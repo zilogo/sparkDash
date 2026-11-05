@@ -100,6 +100,32 @@ describe("AddSparkDialog keyboard contract", () => {
     );
   });
 
+  it("lists existing groups and sends the chosen one with a new spark", async () => {
+    vi.mocked(addSpark).mockResolvedValue({ success: true, spark: {} as never });
+    render(<AddSparkDialog open onClose={() => {}} onAdded={() => {}} existingGroups={["DeepSeek"]} />);
+    const setValue = (el: HTMLInputElement, value: string) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(el, value);
+      act(() => el.dispatchEvent(new Event("input", { bubbles: true })));
+    };
+    const click = async (label: RegExp) => {
+      const button = Array.from(document.querySelectorAll("button")).find((b) => label.test(b.textContent ?? ""));
+      expect(button, String(label)).toBeDefined();
+      await act(async () => {
+        button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    };
+    const group = document.getElementById("add-spark-group") as HTMLInputElement;
+    const listId = group.getAttribute("list") ?? "";
+    expect([...document.querySelectorAll(`datalist#${CSS.escape(listId)} option`)].map((o) => o.getAttribute("value"))).toEqual(["DeepSeek"]);
+    setValue(document.getElementById("add-spark-lan-ip") as HTMLInputElement, "192.168.1.60");
+    setValue(group, "DeepSeek");
+    await click(/^Next: Role/);
+    setValue(document.getElementById("add-spark-name") as HTMLInputElement, "Grouped");
+    await click(/^Next: Services/);
+    await click(/^Add Spark/);
+    expect(addSpark).toHaveBeenCalledWith(expect.objectContaining({ id: "grouped", group: "DeepSeek" }));
+  });
+
   it("labels the final button after the chosen unit type", async () => {
     render(<AddSparkDialog open onClose={() => {}} onAdded={() => {}} />);
     const setKind = (value: string) => {
