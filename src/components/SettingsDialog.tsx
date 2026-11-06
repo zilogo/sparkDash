@@ -738,15 +738,7 @@ export function SettingsDialog({ open, onClose, onSaved, onOpenHarness, serverVe
           <div className="settings-links">
             <span>{t("about.version", { version: displayVersion })}</span>
             <span aria-hidden>·</span>
-            <a href="https://mia-ai.net/" target="_blank" rel="noopener noreferrer">
-              mia-ai.net
-            </a>
-            <span aria-hidden>·</span>
-            <a href="https://x.com/MiaAI_lab" target="_blank" rel="noopener noreferrer">
-              𝕏 @MiaAI_lab
-            </a>
-            <span aria-hidden>·</span>
-            <a href="https://github.com/MiaAI-Lab" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/zilogo/sparkDash" target="_blank" rel="noopener noreferrer">
               {t("about.github")}
             </a>
           </div>

@@ -89,13 +89,13 @@ describe("SettingsDialog fleet GPU clock and Save", () => {
       <SettingsDialog open onClose={vi.fn()} onSaved={vi.fn()} serverVersion="2.99.0" />
     );
     await settle();
-    expect(container.textContent).toContain("sparkDash v2.99.0");
+    expect(container.textContent).toContain("KarmaboxDash v2.99.0");
   });
 
   it("falls back to this page's build version when health reports none", async () => {
     const { container } = render(<SettingsDialog open onClose={vi.fn()} onSaved={vi.fn()} />);
     await settle();
-    expect(container.textContent).toContain(`sparkDash v${packageJson.version}`);
+    expect(container.textContent).toContain(`KarmaboxDash v${packageJson.version}`);
   });
 
   it("enables Save for a cap pick alone, and saves nothing while the fleet refuses it", async () => {

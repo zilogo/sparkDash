@@ -391,7 +391,7 @@ export function KioskPage() {
             <BoltIcon className="h-[17px] w-[17px]" />
           </span>
           <span>
-            spark<span className="brand__dash">Dash</span>
+            Karmabox<span className="brand__dash">Dash</span>
           </span>
         </a>
         <HeadKpi value={rateText(totals.decodeTps)} label="tok/s fleet decode" trace={fleetGen} traceKey="gen" />

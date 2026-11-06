@@ -308,7 +308,7 @@ export function buildDecodeShareCard(
     rows,
     legend:
       "Aggregate — total decode tok/s across all concurrent streams. Stream — per-stream average decode.",
-    footer: "github.com/MiaAI-Lab/sparkDash",
+    footer: "github.com/zilogo/sparkDash",
     generatedAt: now,
   };
 }
@@ -359,7 +359,7 @@ export function buildPrefillShareCard(
     rows,
     legend:
       "Prefill — server prompt timing, else tokens ÷ (TTFT − request overhead), cache hits excluded. TTFT — time to first token. Median-rate sample.",
-    footer: "github.com/MiaAI-Lab/sparkDash",
+    footer: "github.com/zilogo/sparkDash",
     generatedAt: now,
   };
 }
@@ -432,7 +432,7 @@ export function buildQualityShareCard(
     columns: { load: "Category", primary: "Score", secondary: compare ? "vs other" : "" },
     rows,
     legend: "Score — share of items passed. Temperature 0, fixed seed.",
-    footer: "github.com/MiaAI-Lab/sparkDash",
+    footer: "github.com/zilogo/sparkDash",
     generatedAt: now,
   };
 }
@@ -531,7 +531,7 @@ export function buildToolEvalShareCard(
     columns: { load: "Category", primary: "Score", secondary: "" },
     rows: [],
     legend: "Score 0–100. Tiers: 90+ Excellent, 75+ Good, 60+ Adequate, 40+ Weak, else Poor.",
-    footer: "github.com/MiaAI-Lab/sparkDash",
+    footer: "github.com/zilogo/sparkDash",
     generatedAt: now,
   };
 }
@@ -632,7 +632,7 @@ export function buildToolEvalCompareShareCard(
     columns: { load: "Category", primary: "Run A", secondary: "Run B" },
     rows: [],
     legend: "Run B against run A, the baseline. Green is better, red is worse. Scores 0–100.",
-    footer: "github.com/MiaAI-Lab/sparkDash",
+    footer: "github.com/zilogo/sparkDash",
     generatedAt: now,
   };
 }

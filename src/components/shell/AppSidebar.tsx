@@ -263,7 +263,7 @@ export function AppSidebar({
         <a
           href={idToPath(OVERVIEW_ID)}
           className="brand"
-          aria-label="sparkDash overview"
+          aria-label="KarmaboxDash overview"
           onClick={(e) => {
             // Plain click navigates in-app; modifier clicks and the context menu keep the normal link behaviour.
             if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -275,7 +275,7 @@ export function AppSidebar({
             <BoltIcon className="h-[17px] w-[17px]" />
           </span>
           <span>
-            spark<span className="brand__dash">Dash</span>
+            Karmabox<span className="brand__dash">Dash</span>
           </span>
         </a>
         {onCollapse ? (
@@ -472,7 +472,7 @@ export function AppSidebar({
         </div>
         <OpenAccessChip authMode={authMode} />
         <div className="rail-credit">
-          <span>by Karma</span>
+          <span>by KarmaBox</span>
           <span className="rail-credit__links">
             <a href="https://github.com/zilogo/sparkDash" target="_blank" rel="noopener noreferrer" title="sparkDash on GitHub" aria-label="sparkDash on GitHub">
               <GithubIcon className="h-3.5 w-3.5" />

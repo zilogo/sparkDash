@@ -28,7 +28,7 @@ const card: ShareCardModel = {
   columns: { load: "Load", primary: "Aggregate", secondary: "Stream" },
   rows: [],
   legend: "Aggregate — …",
-  footer: "github.com/MiaAI-Lab/sparkDash",
+  footer: "github.com/zilogo/sparkDash",
   generatedAt: Date.UTC(2026, 8, 17),
 };
 

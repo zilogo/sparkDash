@@ -360,7 +360,7 @@ describe("share card painter", () => {
     // Chips are painted, not just carried in the model.
     expect(ctx.texts).toContain("TensorFold");
     expect(ctx.texts).toContain("Open · Local");
-    expect(ctx.texts).toContain("github.com/MiaAI-Lab/sparkDash");
+    expect(ctx.texts).toContain("github.com/zilogo/sparkDash");
     // Background covers the whole card.
     expect(ctx.fillRects[0]).toEqual([0, 0, SHARE_CARD_WIDTH, shareCardHeight(card)]);
   });

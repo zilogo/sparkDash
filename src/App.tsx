@@ -561,7 +561,7 @@ function DashboardApp() {
             <a
               href={idToPath(OVERVIEW_ID)}
               className="brand"
-              aria-label="sparkDash overview"
+              aria-label="KarmaboxDash overview"
               onClick={(e) => {
                 if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                 e.preventDefault();
@@ -572,7 +572,7 @@ function DashboardApp() {
                 <BoltIcon className="h-[17px] w-[17px]" />
               </span>
               <span>
-                spark<span className="brand__dash">Dash</span>
+                Karmabox<span className="brand__dash">Dash</span>
               </span>
             </a>
             <button type="button" className="search-trigger" onClick={() => setShowPalette(true)} aria-label="Open command palette">
